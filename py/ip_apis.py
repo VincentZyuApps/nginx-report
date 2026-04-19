@@ -2,6 +2,7 @@
 # 每次查询从第一个开始，失败自动切换下一个
 
 import json
+import time
 import urllib.request
 
 # 当前使用的API名称（用于显示）
@@ -82,11 +83,6 @@ IP_APIS = [
         "parse": lambda d: normalize_location(d.get("country", ""), d.get("regionName", ""), d.get("city", ""), d.get("isp", "")) if d.get("status") == "success" else None,
     },
     {
-        "name": "ip-sb",
-        "url": "https://api.ip.sb/geoip/{ip}",
-        "parse": lambda d: normalize_location(d.get("country", ""), d.get("region", ""), d.get("city", ""), d.get("isp", "")) if d.get("country") else None,
-    },
-    {
         "name": "ipapi-is",
         "url": "https://api.ipapi.is/json/{ip}",
         "parse": lambda d: normalize_location(d.get("country", ""), d.get("region", ""), d.get("city", ""), d.get("isp", "")) if d.get("country") else None,
@@ -131,8 +127,10 @@ def switch_api():
 
 
 def fetch_location(ip: str) -> str:
-    """使用多个API查询IP属地，失败自动切换"""
+    """使用多个API查询IP属地，失败自动切换，重试间隔指数增长"""
     global _api_index, current_api_name
+    
+    delay = 2  # 初始重试间隔2秒
     
     for _ in range(len(IP_APIS)):
         api = get_api()
@@ -148,7 +146,9 @@ def fetch_location(ip: str) -> str:
         except Exception as e:
             print(f"[{api['name']}] Error: {e}")
         
-        # 当前API失败，切换下一个
+        # 等待后切换下一个API（指数退避）
+        time.sleep(delay)
+        delay = min(delay * 2, 1024)  # 最大1024秒
         switch_api()
     
     return None
