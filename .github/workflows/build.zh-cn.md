@@ -95,21 +95,24 @@ check ──→ build ──→ publish
 
 ```bash
 # 拉取最新镜像
-docker pull vincentzyu/nginx-report:latest
+docker pull vincentzyu233/nginx-report:latest
 
 # 运行容器
-docker run -d -p 8080:8080 -v /path/to/data.db:/app/data.db vincentzyu/nginx-report:latest
+docker run -d -p 60419:8080 -v /path/to/data.db:/app/data.db vincentzyu233/nginx-report:latest
+```
 
-# 或使用 Docker Compose
-#
-# version: '3'
-# services:
-#   nginx-report:
-#     image: vincentzyu/nginx-report:latest
-#     ports:
-#       - "8080:8080"
-#     volumes:
-#       - ./data.db:/app/data.db
+### Docker Compose
+
+```yaml
+version: '3'
+services:
+  nginx-report:
+    image: vincentzyu233/nginx-report:latest
+    ports:
+      - "60419:8080"
+    volumes:
+      - ./data.db:/app/data.db
+    restart: unless-stopped
 ```
 
 ## 📋 检查 CI 状态

@@ -95,21 +95,24 @@ Configure in repository Settings → Secrets and variables → Actions:
 
 ```bash
 # Pull latest image
-docker pull vincentzyu/nginx-report:latest
+docker pull vincentzyu233/nginx-report:latest
 
 # Run container
-docker run -d -p 8080:8080 -v /path/to/data.db:/app/data.db vincentzyu/nginx-report:latest
+docker run -d -p 60419:8080 -v /path/to/data.db:/app/data.db vincentzyu233/nginx-report:latest
+```
 
-# Or use Docker Compose
-#
-# version: '3'
-# services:
-#   nginx-report:
-#     image: vincentzyu/nginx-report:latest
-#     ports:
-#       - "8080:8080"
-#     volumes:
-#       - ./data.db:/app/data.db
+### Docker Compose
+
+```yaml
+version: '3'
+services:
+  nginx-report:
+    image: vincentzyu233/nginx-report:latest
+    ports:
+      - "60419:8080"
+    volumes:
+      - ./data.db:/app/data.db
+    restart: unless-stopped
 ```
 
 ## 📋 Check CI Status
