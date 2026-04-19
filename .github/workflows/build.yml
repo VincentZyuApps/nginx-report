@@ -1,0 +1,78 @@
+name: Build and Publish
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y gcc
+      
+      - name: Download dependencies
+        working-directory: ./go
+        run: go mod download
+      
+      - name: Build
+        working-directory: ./go
+        run: CGO_ENABLED=1 go build -o server .
+      
+      - name: Verify build
+        working-directory: ./go
+        run: ls -la server
+      
+      - name: Login to Docker Hub
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            vincentzyu/nginx-report
+            ghcr.io/${{ github.actor }}/nginx-report
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=latest,enable=true
+      
+      - name: Build and push Docker image
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+        uses: docker/build-push-action@v6
+        with:
+          context: ./go
+          push: true
+          tags: ${{ meta.outputs.tags }}
+          labels: ${{ meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
