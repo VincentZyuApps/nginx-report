@@ -303,10 +303,9 @@
                 <div class="status-badge {{ 'loading' if running else 'done' }}">
                     <span class="status-dot"></span>
                     <span id="status">
-                        {% if running and next_retry|int > 0 %}
-                        第 {{ done }} / {{ total }} 个，第 {{ retry }} 次重试，距离下次还剩 {{ next_retry }} 秒...
-                        {% elif running %}
-                        第 {{ done }} / {{ total }} 个IP查询中...
+                        {% if running %}
+                        第 {{ done }} / {{ total }} 个，第 {{ retry|int + 1 }} 次查询中...
+                        {% if next_retry|int > 0 %}，第 {{ retry }} 次重试，距离下次还剩 {{ next_retry }} 秒{% endif %}
                         {% else %}
                         已加载完成
                         {% endif %}
