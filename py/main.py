@@ -154,8 +154,8 @@ async def index(request: Request, sort: str = "count", order: str = "desc"):
             "data": data,
             "current_sort": sort,
             "current_order": order,
-            "total": query_status["total"],
-            "done": query_status["done"],
+            "total": str(query_status["total"]),
+            "done": str(query_status["done"]),
             "running": query_status["running"]
         }
     )
