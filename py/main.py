@@ -83,6 +83,11 @@ def init_db():
             timestamp INTEGER
         )
     """)
+    # 如果api_source列不存在，添加它
+    try:
+        conn.execute("SELECT api_source FROM ip_cache LIMIT 1")
+    except sqlite3.OperationalError:
+        conn.execute("ALTER TABLE ip_cache ADD COLUMN api_source TEXT")
     conn.commit()
     conn.close()
 
