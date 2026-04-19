@@ -121,7 +121,7 @@ def get_log_data():
         return []
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, sort: str = "count", order: str = "desc", font: str = "disabled"):
+async def index(request: Request, sort: str = "count", order: str = "desc", font: str = "enabled"):
     data = get_log_data()
     
     # 排序逻辑
