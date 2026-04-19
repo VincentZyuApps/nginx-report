@@ -328,7 +328,7 @@ async def index(request: Request, sort: str = None, order: str = None, font: str
             "done": str(query_status["done"]),
             "running": query_status["running"],
             "retry": str(query_status.get("retry", 0)),
-            "next_retry": str(query_status.get("next_retry", 0)),
+            "next_retry": str(round(query_status.get("next_retry", 0), 1)),
             "use_custom_font": font == "enabled",
             "all_log_files": all_log_files,
             "current_logfile": logfile

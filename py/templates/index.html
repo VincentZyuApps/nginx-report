@@ -237,6 +237,11 @@
             font-size: 13px;
         }
         
+        .location-pending {
+            color: #f60;
+            font-size: 13px;
+        }
+        
         .spinner {
             display: inline-block;
             width: 12px;
@@ -326,7 +331,11 @@
                         <td class="count-cell">{{ item.count }}</td>
                         <td>
                             {% if item.status == 'pending' %}
+                            {% if item.retry|int > 0 %}
+                            <span class="location-pending">第{{ item.retry }}次重试...</span>
+                            {% else %}
                             <span class="location-loading"><span class="spinner"></span></span>
+                            {% endif %}
                             {% else %}
                             <span class="location-cell">{{ item.location }}</span>
                             {% endif %}
