@@ -6,13 +6,29 @@
 
 Docker images are automatically built and published to Docker Hub and GitHub Container Registry (ghcr.io) via GitHub Actions.
 
-## 🔑 Triggers
+## 🔑 Trigger Keywords
 
-| Event | Build | Push to Registry | Create Release |
-|-------|:---:|:---:|:---:|
-| push to `master` | ✅ | ✅ | ❌ |
-| push tag `v*` | ✅ | ✅ | ✅ |
-| pull_request | ✅ | ❌ | ❌ |
+| Commit Keyword | Build Image | Push to DockerHub | Push to ghcr.io |
+|---------------|:---:|:---:|:---:|
+| `build action` | ✅ | ❌ | ❌ |
+| `build publish` | ✅ | ✅ | ✅ |
+
+**Notes:**
+- PR always builds but doesn't publish
+- `build action` = verify build only (CI test)
+- `build publish` = build + push to both registries
+
+## 🚀 Usage Examples
+
+```bash
+# Verify build only (PR or CI test)
+git commit --allow-empty -m "ci: test build (build action)"
+
+# Build and publish image
+git commit --allow-empty -m "ci: publish image (build publish)"
+
+# Regular commit (no build)
+git commit -m "fix: update docs"
 
 ## 🏗️ Build Flow
 

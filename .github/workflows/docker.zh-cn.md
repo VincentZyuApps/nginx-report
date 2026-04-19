@@ -6,13 +6,29 @@
 
 Docker 镜像通过 GitHub Actions 自动构建并发布到 Docker Hub 和 GitHub Container Registry (ghcr.io)。
 
-## 🔑 触发条件
+## 🔑 触发关键词
 
-| 事件 | 构建 | 推送到仓库 | 创建 Release |
-|------|:---:|:---:|:---:|
-| push `master` 分支 | ✅ | ✅ | ❌ |
-| push tag `v*` | ✅ | ✅ | ✅ |
-| pull_request | ✅ | ❌ | ❌ |
+| Commit 关键词 | 构建镜像 | 推送到 DockerHub | 推送到 ghcr.io |
+|---------------|:---:|:---:|:---:|
+| `build action` | ✅ | ❌ | ❌ |
+| `build publish` | ✅ | ✅ | ✅ |
+
+**说明：**
+- PR 始终只构建，不发布
+- `build action` = 仅验证构建（CI测试用）
+- `build publish` = 构建 + 推送到双仓库
+
+## 🚀 使用示例
+
+```bash
+# 仅验证构建（PR 或 CI 测试）
+git commit --allow-empty -m "ci: test build (build action)"
+
+# 构建并发布镜像
+git commit --allow-empty -m "ci: publish image (build publish)"
+
+# 普通提交（不构建）
+git commit -m "fix: update docs"
 
 ## 🏗️ 构建流程
 
