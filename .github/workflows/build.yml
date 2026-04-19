@@ -62,5 +62,3 @@ jobs:
           push: true
           tags: vincentzyu/nginx-report:latest,ghcr.io/${{ github.actor }}/nginx-report:latest
           labels: org.opencontainers.image.title=nginx-report,org.opencontainers.image.description=Nginx access log statistics
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
