@@ -17,7 +17,87 @@ import urllib.error
 import urllib.request
 from collections import Counter
 
-import ip_apis
+# IP查询API
+# 国家名中英对照
+COUNTRY_MAP = {
+    "China": "中国", "CN": "中国",
+    "United States": "美国", "US": "美国",
+    "United Kingdom": "英国", "UK": "英国",
+    "Russia": "俄罗斯", "RU": "俄罗斯",
+    "Germany": "德国", "DE": "德国",
+    "Japan": "日本", "JP": "日本",
+    "South Korea": "韩国", "KR": "韩国",
+    "Singapore": "新加坡", "SG": "新加坡",
+    "Hong Kong": "香港", "HK": "香港",
+    "Taiwan": "台湾", "TW": "台湾",
+    "France": "法国", "FR": "法国",
+    "India": "印度", "IN": "印度",
+    "Canada": "加拿大", "CA": "加拿大",
+    "Australia": "澳大利亚", "AU": "澳大利亚",
+    "Brazil": "巴西", "BR": "巴西",
+    "Netherlands": "荷兰", "NL": "荷兰",
+    "Ireland": "爱尔兰", "IE": "爱尔兰",
+    "Switzerland": "瑞士", "CH": "瑞士",
+    "South Africa": "南非", "ZA": "南非",
+}
+
+current_api_name = "ip-api"
+
+def normalize_location(country: str, region: str, city: str, isp: str) -> str:
+    """统一格式化位置信息"""
+    parts = []
+    
+    if country:
+        country = COUNTRY_MAP.get(country, country)
+        if country == "中国" and region:
+            parts.append(region)
+        else:
+            parts.append(country)
+    
+    if region and region != country:
+        parts.append(region)
+    
+    if city:
+        parts.append(city)
+    
+    ispTxt = ""
+    if isp:
+        isp = isp.strip()
+        for name in ["电信", "联通", "移动", "铁通", "教育网", "科技网"]:
+            if name in isp:
+                ispTxt = name
+                break
+        if not ispTxt:
+            ispTxt = isp[:15]
+    
+    result = " ".join(parts)
+    if ispTxt:
+        result += f" [{ispTxt}]"
+    
+    return result.strip()
+
+def fetch_location(ip: str) -> str:
+    """使用IP-API查询IP属地，失败无限重试"""
+    delay = 2
+    
+    while True:
+        try:
+            url = f"http://demo.ip-api.com/json/{ip}?fields=66842623&lang=zh-CN"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=8) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                if data.get("status") == "success":
+                    return normalize_location(
+                        data.get("country", ""),
+                        data.get("regionName", ""),
+                        data.get("city", ""),
+                        data.get("isp", "")
+                    )
+        except Exception as e:
+            print(f"[ip-api] Error: {e}")
+        
+        time.sleep(delay)
+        delay = min(delay * 2, 1024)
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -95,13 +175,13 @@ def query_ips_background(ips: list):
     """后台查询IP属地"""
     global query_status
     with query_lock:
-        query_status = {"total": len(ips), "done": 0, "running": True, "api": ip_apis.current_api_name}
+        query_status = {"total": len(ips), "done": 0, "running": True, "api": current_api_name}
     
     for ip in ips:
         get_ip_location(ip)
         with query_lock:
             query_status["done"] += 1
-            query_status["api"] = ip_apis.current_api_name
+            query_status["api"] = current_api_name
         # 每秒最多45个请求 (ip-api限制)
         time.sleep(0.025)
     
@@ -144,12 +224,12 @@ def get_ip_location(ip: str) -> str:
     
     location = fetch_from_api(ip)
     if location:
-        save_location(ip, location, ip_apis.current_api_name)
+        save_location(ip, location, current_api_name)
     return location or "查询失败"
 
 def fetch_from_api(ip: str) -> str:
     """从IP-API获取属地"""
-    return ip_apis.fetch_location(ip)
+    return fetch_location(ip)
 
 def get_log_data(log_file):
     """从指定日志文件读取IP统计"""
