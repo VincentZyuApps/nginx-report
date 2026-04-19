@@ -148,7 +148,7 @@ DB_FILE = "data/data.db"
 CACHE_TTL = 30 * 24 * 3600  # 30 天
 
 # 全局查询进度
-query_status = {"total": 0, "done": 0, "running": False, "api": ""}
+query_status = {"total": 0, "done": 0, "running": False, "api": "", "retry": 0, "next_retry": 0}
 query_lock = threading.Lock()
 
 def init_db():
@@ -174,16 +174,31 @@ def init_db():
 def query_ips_background(ips: list):
     """后台查询IP属地"""
     global query_status
+    delay = 2
+    retry_count = 0
+    
     with query_lock:
-        query_status = {"total": len(ips), "done": 0, "running": True, "api": current_api_name}
+        query_status = {"total": len(ips), "done": 0, "running": True, "api": current_api_name, "retry": 0, "next_retry": 0}
     
     for ip in ips:
-        get_ip_location(ip)
+        location = fetch_from_api(ip)
+        retry_count = retry_count + (1 if location is None else -retry_count)
+        
         with query_lock:
             query_status["done"] += 1
             query_status["api"] = current_api_name
-        # 每秒最多45个请求 (ip-api限制)
-        time.sleep(0.025)
+            query_status["retry"] = max(0, retry_count)
+            query_status["next_retry"] = delay if location is None else 0
+        
+        if location is None:
+            # 未查到，等待后重试
+            time.sleep(delay)
+            delay = min(delay * 2, 1024)
+        else:
+            delay = 2
+            retry_count = 0
+            # 每秒最多45个请求 (ip-api限制)
+            time.sleep(0.025)
     
     with query_lock:
         query_status["running"] = False
@@ -312,6 +327,8 @@ async def index(request: Request, sort: str = None, order: str = None, font: str
             "total": str(query_status["total"]),
             "done": str(query_status["done"]),
             "running": query_status["running"],
+            "retry": str(query_status.get("retry", 0)),
+            "next_retry": str(query_status.get("next_retry", 0)),
             "use_custom_font": font == "enabled",
             "all_log_files": all_log_files,
             "current_logfile": logfile
