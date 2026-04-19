@@ -77,11 +77,6 @@ IP_APIS = [
         "parse": lambda d: normalize_location("中国", d.get("pro", ""), d.get("city", ""), d.get("addr", "").split()[0] if d.get("addr") else "") if d.get("pro") else None,
     },
     {
-        "name": "geojs",
-        "url": "https://get.geojs.io/v1/ip/geo/{ip}",
-        "parse": lambda d: normalize_location(d.get("country", ""), d.get("region", ""), d.get("city", ""), d.get("isp", "")) if d.get("country") else None,
-    },
-    {
         "name": "ip-api",
         "url": "http://demo.ip-api.com/json/{ip}?fields=66842623&lang=zh-CN",
         "parse": lambda d: normalize_location(d.get("country", ""), d.get("regionName", ""), d.get("city", ""), d.get("isp", "")) if d.get("status") == "success" else None,
