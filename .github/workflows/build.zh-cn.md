@@ -8,7 +8,7 @@ CI/CD 流水线由 **commit 信息中的关键词** 驱动。推送到 `master` 
 
 ## 🔑 关键词
 
-| Commit 信息中的关键词 | 构建 Docker | 推送到 DockerHub | 推送到 GitHub Container Registry |
+| Commit 信息中的关键词 | 构建 Docker | 推送到 DockerHub | 推送到 GitHub Packages |
 |----------------------|:---:|:---:|:---:|
 | `build action` | ✅ | ❌ | ❌ |
 | `build publish` | ✅ | ✅ | ✅ |
@@ -25,7 +25,7 @@ CI/CD 流水线由 **commit 信息中的关键词** 驱动。推送到 `master` 
 # 仅构建，验证编译
 git commit --allow-empty -m "ci: test build (build action)"
 
-# 构建 + 推送到 DockerHub 和 GHCR
+# 构建 + 推送到 DockerHub 和 GitHub Packages
 git commit -m "release: v0.1.0 (build publish)"
 
 # ============================================================
@@ -55,7 +55,7 @@ check ──→ build ──→ publish
   │         │           │
   │         │           ├─ DockerHub: 推送到 vincentzyu/nginx-report
   │         │           │
-  │         │           └─ GHCR: 推送到 ghcr.io/vincentzyu/nginx-report
+  │         │           └─ GitHub Packages: 推送到 ghcr.io/vincentzyu/nginx-report
   │         │
   │         └─ 编译 Go 程序
   │            构建 Docker 镜像（不上传）
@@ -81,7 +81,8 @@ check ──→ build ──→ publish
 |------------|------|
 | `DOCKERHUB_USERNAME` | DockerHub 用户名 |
 | `DOCKERHUB_TOKEN` | DockerHub Access Token |
-| `GHCR_TOKEN` | GitHub Token（自动提供 `${{ secrets.GITHUB_TOKEN }}`）|
+
+> **注意:** GitHub Packages 使用 `${{ secrets.GITHUB_TOKEN }}` 自动提供。
 
 ## 🚢 镜像标签
 

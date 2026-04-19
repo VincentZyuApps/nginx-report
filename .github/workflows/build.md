@@ -8,7 +8,7 @@ CI/CD pipeline is driven by **keywords in commit messages**. When pushing to `ma
 
 ## 🔑 Keywords
 
-| Commit Keyword | Build Docker | Push to DockerHub | Push to GHCR |
+| Commit Keyword | Build Docker | Push to DockerHub | Push to GitHub Packages |
 |---------------|:---:|:---:|:---:|
 | `build action` | ✅ | ❌ | ❌ |
 | `build publish` | ✅ | ✅ | ✅ |
@@ -25,7 +25,7 @@ CI/CD pipeline is driven by **keywords in commit messages**. When pushing to `ma
 # Build only, verify compilation
 git commit --allow-empty -m "ci: test build (build action)"
 
-# Build + push to DockerHub and GHCR
+# Build + push to DockerHub and GitHub Packages
 git commit -m "release: v0.1.0 (build publish)"
 
 # ============================================================
@@ -55,7 +55,7 @@ check ──→ build ──→ publish
   │         │           │
   │         │           ├─ DockerHub: push to vincentzyu/nginx-report
   │         │           │
-  │         │           └─ GHCR: push to ghcr.io/vincentzyu/nginx-report
+  │         │           └─ GitHub Packages: push to ghcr.io/vincentzyu/nginx-report
   │         │
   │         └─ Compile Go program
   │            Build Docker image (without push)
@@ -81,7 +81,8 @@ Configure in repository Settings → Secrets and variables → Actions:
 |------------|------------|
 | `DOCKERHUB_USERNAME` | DockerHub username |
 | `DOCKERHUB_TOKEN` | DockerHub Access Token |
-| `GHCR_TOKEN` | GitHub Token (auto-provided `${{ secrets.GITHUB_TOKEN }}`) |
+
+> **Note:** GitHub Packages uses `${{ secrets.GITHUB_TOKEN }}` automatically.
 
 ## 🚢 Image Tags
 
