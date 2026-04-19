@@ -16,6 +16,7 @@
         .controls a:hover { background: #eff6ff; }
         .location-tag { color: #059669; font-weight: 600; }
         .isp-tag { color: #94a3b8; font-size: 0.75rem; }
+        .location-loading { color: #f59e0b; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -27,6 +28,8 @@
             <a href="/?sort=ip&order=asc">IP 升</a> | <a href="/?sort=ip&order=desc">IP 降</a>
             <span style="color:#e2e8f0; margin: 0 10px;">|</span>
             <a href="/?sort=count&order=asc">次数 升</a> | <a href="/?sort=count&order=desc">次数 降</a>
+            <span style="color:#e2e8f0; margin: 0 10px;">|</span>
+            <span id="status">{{ '第' + str(done) + '/' + str(total) + '个IP查询中...' if running else '已加载完成' }}</span>
         </div>
 
         <table>
@@ -42,13 +45,38 @@
                 <tr>
                     <td><code>{{ item.ip }}</code></td>
                     <td><b style="color:#3b82f6;">{{ item.count }}</b></td>
-                    <td>
+                    <td class="loc-{{ item.ip }}">
+                        {% if item.status == 'pending' %}
+                        <span class="location-loading">待查询</span>
+                        {% else %}
                         <span class="location-tag">📍 {{ item.location }}</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    <script>
+        async function updateStatus() {
+            try {
+                const res = await fetch('/status');
+                const st = await res.json();
+                
+                if (st.running) {
+                    document.getElementById('status').innerText = '第' + st.done + '/' + st.total + '个IP查询中...';
+                    setTimeout(() => location.reload(), 2000);
+                } else if (st.done > 0 && st.done === st.total) {
+                    document.getElementById('status').innerText = '已加载完成';
+                    setTimeout(() => location.reload(), 1000);
+                }
+            } catch(e) {}
+        }
+        
+        if ({{ 'true' if running else 'false' }}) {
+            setInterval(updateStatus, 3000);
+        }
+    </script>
 </body>
 </html>

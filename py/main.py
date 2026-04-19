@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from fastapi import BackgroundTasks
 from collections import Counter
 import uvicorn
 import os
 import time
 import sqlite3
+import asyncio
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -13,6 +15,12 @@ templates = Jinja2Templates(directory="templates")
 LOG_FILE = "/var/log/nginx/access.log"
 DB_FILE = "data/data.db"
 CACHE_TTL = 30 * 24 * 3600  # 30 天
+
+# 全局查询进度
+import threading
+
+query_status = {"total": 0, "done": 0, "running": False}
+query_lock = threading.Lock()
 
 def init_db():
     """初始化数据库"""
@@ -27,6 +35,24 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+
+def query_ips_background(ips: list):
+    """后台查询IP属地"""
+    global query_status
+    with query_lock:
+        query_status = {"total": len(ips), "done": 0, "running": True}
+    
+    for ip in ips:
+        get_ip_location(ip)
+        with query_lock:
+            query_status["done"] += 1
+    
+    with query_lock:
+        query_status["running"] = False
+
+async def run_background_query(ips: list):
+    """异步后台查询"""
+    await asyncio.to_thread(query_ips_background, ips)
 
 def get_cached_location(ip: str) -> tuple:
     """获取缓存的IP属地"""
@@ -102,19 +128,42 @@ async def index(request: Request, sort: str = "count", order: str = "desc"):
     else:
         data.sort(key=lambda x: x["count"], reverse=is_reverse)
     
-    # 后端查询 IP 属地（带缓存）
+    # 为每个IP填充属地（已有缓存的直接返回，无缓存返回"待查询"）
     for item in data:
-        item["location"] = get_ip_location(item["ip"])
-        
+        cached = get_cached_location(item["ip"])
+        if cached:
+            item["location"] = cached[0]
+            item["status"] = "done"
+        else:
+            item["location"] = "待查询"
+            item["status"] = "pending"
+    
+    # 启动后台查询
+    ips = [item["ip"] for item in data if item["status"] == "pending"]
+    if ips and not query_status["running"]:
+        query_status["total"] = len(ips)
+        query_status["done"] = 0
+        query_status["running"] = True
+        # 用 asyncio 在后台运行查询
+        asyncio.create_task(run_background_query(ips))
+    
     return templates.TemplateResponse(
         request, 
         "index.html", 
         {
             "data": data,
             "current_sort": sort,
-            "current_order": order
+            "current_order": order,
+            "total": query_status["total"],
+            "done": query_status["done"],
+            "running": query_status["running"]
         }
     )
+
+@app.get("/status")
+async def status():
+    """查询进度API"""
+    return query_status
 
 if __name__ == "__main__":
     init_db()
