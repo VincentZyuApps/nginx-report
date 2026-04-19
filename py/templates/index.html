@@ -198,8 +198,10 @@
         <div class="card">
             <div class="toolbar">
                 <div class="toolbar-left">
-                    <a class="{{ 'sort-active' if current_sort == 'ip' else 'sort-inactive' }}" href="/?sort=ip&order={{ 'desc' if current_sort == 'ip' and current_order == 'asc' else 'asc' }}">IP {{ '↓' if current_sort == 'ip' and current_order == 'desc' else '↑' }}</a>
-                    <a class="{{ 'sort-active' if current_sort == 'count' else 'sort-inactive' }}" href="/?sort=count&order={{ 'desc' if current_sort == 'count' and current_order == 'asc' else 'asc' }}">次数 {{ '↓' if current_sort == 'count' and current_order == 'desc' else '↑' }}</a>
+                    <a class="{{ 'sort-active' if current_sort == 'ip' else 'sort-inactive' }}" href="/?sort=ip&order={{ 'desc' if current_sort == 'ip' and current_order == 'asc' else 'asc' }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">IP {{ '↓' if current_sort == 'ip' and current_order == 'desc' else '↑' }}</a>
+                    <a class="{{ 'sort-active' if current_sort == 'count' else 'sort-inactive' }}" href="/?sort=count&order={{ 'desc' if current_sort == 'count' and current_order == 'asc' else 'asc' }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">次数 {{ '↓' if current_sort == 'count' and current_order == 'desc' else '↑' }}</a>
+                    <span style="width:1px;height:16px;background:#ddd;margin:0 8px;"></span>
+                    <a class="{{ 'sort-active' if use_custom_font else 'sort-inactive' }}" href="/?sort={{ current_sort }}&order={{ current_order }}&font={{ 'disabled' if use_custom_font else 'enabled' }}">字体 {{ '✓' if use_custom_font else '' }}</a>
                 </div>
                 <div class="status-badge {{ 'loading' if running else 'done' }}">
                     <span class="status-dot"></span>
@@ -260,7 +262,8 @@
             } catch(e) {}
         }
         
-        if ({{ 'true' if running else 'false' }})) {
+        var isRunning = {{ 'true' if running else 'false' }};
+        if (isRunning) {
             setInterval(updateStatus, 3000);
         }
     </script>

@@ -19,7 +19,7 @@ var queryStatus struct {
 	Total   int
 	Done    int
 	Running bool
-	mu     sync.RWMutex
+	mu      sync.RWMutex
 }
 var locationCache = make(map[string]string)
 var cacheMu sync.RWMutex
@@ -33,22 +33,22 @@ type LogItem struct {
 
 func main() {
 	initDB()
-	
+
 	r := gin.Default()
-	
+
 	// 静态文件
 	r.Static("/static", "./static")
-	
+
 	// 首页
 	r.GET("/", func(c *gin.Context) {
 		c.File("index.html")
 	})
-	
+
 	// API
 	r.GET("/api/data", func(c *gin.Context) {
 		sortBy := c.DefaultQuery("sort", "count")
 		items := getLogData()
-		
+
 		if sortBy == "ip" {
 			sort.Slice(items, func(i, j int) bool {
 				return items[i].IP < items[j].IP
@@ -58,7 +58,7 @@ func main() {
 				return items[i].Count > items[j].Count
 			})
 		}
-		
+
 		// 填充属地
 		var pendingIPs []string
 		for i := range items {
@@ -70,32 +70,32 @@ func main() {
 				pendingIPs = append(pendingIPs, items[i].IP)
 			}
 		}
-		
+
 		// 后台查询
 		queryStatus.mu.Lock()
 		running := queryStatus.Running
 		queryStatus.mu.Unlock()
-		
+
 		if len(pendingIPs) > 0 && !running {
 			go queryIPsBackground(pendingIPs)
 		}
-		
+
 		queryStatus.mu.Lock()
 		st := queryStatus
 		queryStatus.mu.Unlock()
-		
+
 		c.JSON(http.StatusOK, gin.H{
-			"data": items,
+			"data":   items,
 			"status": st,
 		})
 	})
-	
+
 	r.GET("/api/status", func(c *gin.Context) {
 		queryStatus.mu.Lock()
 		defer queryStatus.mu.Unlock()
 		c.JSON(http.StatusOK, queryStatus)
 	})
-	
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "60419"
@@ -114,7 +114,7 @@ func initDB() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS access_log (
 		ip TEXT PRIMARY KEY,
 		count INTEGER DEFAULT 1,
@@ -123,7 +123,7 @@ func initDB() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS location_cache (
 		ip TEXT PRIMARY KEY,
 		location TEXT,
@@ -132,7 +132,7 @@ func initDB() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	// 加载缓存
 	rows, _ := db.Query("SELECT ip, location FROM location_cache")
 	if rows != nil {
@@ -153,7 +153,7 @@ func getLogData() []LogItem {
 		return nil
 	}
 	defer rows.Close()
-	
+
 	var items []LogItem
 	for rows.Next() {
 		var item LogItem
@@ -174,7 +174,7 @@ func saveLocation(ip, location string) {
 	cacheMu.Lock()
 	locationCache[ip] = location
 	cacheMu.Unlock()
-	
+
 	db.Exec("INSERT OR REPLACE INTO location_cache (ip, location, last_time) VALUES (?, ?, ?)",
 		ip, location, time.Now().Format("2006-01-02 15:04:05"))
 }
@@ -185,16 +185,16 @@ func queryIPsBackground(ips []string) {
 	queryStatus.Total = len(ips)
 	queryStatus.Done = 0
 	queryStatus.mu.Unlock()
-	
+
 	for _, ip := range ips {
 		loc := fetchLocation(ip)
 		saveLocation(ip, loc)
-		
+
 		queryStatus.mu.Lock()
 		queryStatus.Done++
 		queryStatus.mu.Unlock()
 	}
-	
+
 	queryStatus.mu.Lock()
 	queryStatus.Running = false
 	queryStatus.mu.Unlock()
@@ -204,7 +204,7 @@ func fetchLocation(ip string) string {
 	if strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "10.") || strings.HasPrefix(ip, "172.") {
 		return "内网IP"
 	}
-	
+
 	// 简化处理，直接返回空
 	return ""
 }
