@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from collections import Counter
@@ -121,7 +121,10 @@ def get_log_data():
         return []
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, sort: str = "count", order: str = "desc", font: str = "enabled"):
+async def index(request: Request, sort: str = None, order: str = None, font: str = None):
+    # 默认重定向到完整参数
+    if sort is None or order is None or font is None:
+        return RedirectResponse(url=f"/?sort=count&order=desc&font=enabled")
     data = get_log_data()
     
     # 排序逻辑
