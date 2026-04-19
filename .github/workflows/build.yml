@@ -60,5 +60,5 @@ jobs:
         with:
           context: ./go
           push: true
-          tags: vincentzyu/nginx-report:latest,ghcr.io/${{ github.actor }}/nginx-report:latest
+          tags: vincentzyu/nginx-report:latest
           labels: org.opencontainers.image.title=nginx-report,org.opencontainers.image.description=Nginx access log statistics
