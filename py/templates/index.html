@@ -2,60 +2,257 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Nginx IP Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nginx IP 访问统计</title>
     <style>
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; margin: 40px; background: #f8fafc; color: #1e293b; }
-        .container { max-width: 1300px; margin: 0 auto; }
-        h2 { color: #0f172a; font-size: 1.8rem; }
-        table { border-collapse: separate; border-spacing: 0; width: 100%; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
-        th, td { padding: 16px 20px; text-align: left; border-bottom: 1px solid #f1f5f9; }
-        th { background-color: #f8fafc; color: #64748b; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        tr:hover { background-color: #f1f5f9; }
-        .controls { margin-bottom: 24px; padding: 16px; background: white; border-radius: 12px; border: 1px solid #e2e8f0; }
-        .controls a { color: #3b82f6; text-decoration: none; font-weight: 500; margin: 0 8px; padding: 4px 8px; border-radius: 6px; }
-        .controls a:hover { background: #eff6ff; }
-        .location-tag { color: #059669; font-weight: 600; }
-        .isp-tag { color: #94a3b8; font-size: 0.75rem; }
-        .location-loading { color: #f59e0b; font-weight: 600; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: white;
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .header p {
+            color: rgba(255,255,255,0.8);
+            margin-top: 8px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .toolbar a {
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .toolbar a.sort-active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .toolbar a.sort-inactive {
+            background: white;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .toolbar a.sort-inactive:hover {
+            background: #f1f5f9;
+        }
+        
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .status-badge.loading {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        .status-badge.done {
+            background: #d1fae5;
+            color: #059669;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .loading .status-dot { background: #d97706; }
+        .done .status-dot { background: #059669; animation: none; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+        
+        table { width: 100%; border-collapse: collapse; }
+        
+        th {
+            padding: 16px 24px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        td {
+            padding: 16px 24px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: #f8fafc; }
+        
+        .ip-cell code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            color: #1e293b;
+            background: #f1f5f9;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+        
+        .count-cell {
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .location-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .location-main {
+            color: #059669;
+            font-weight: 600;
+        }
+        
+        .location-loading {
+            color: #d97706;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #fcd34d;
+            border-top-color: #d97706;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94a3b8;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255,255,255,0.6);
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>🛰️ 访客 IP 属地查询</h2>
-        
-        <div class="controls">
-            <strong>排序：</strong>
-            <a href="/?sort=ip&order=asc">IP 升</a> | <a href="/?sort=ip&order=desc">IP 降</a>
-            <span style="color:#e2e8f0; margin: 0 10px;">|</span>
-            <a href="/?sort=count&order=asc">次数 升</a> | <a href="/?sort=count&order=desc">次数 降</a>
-            <span style="color:#e2e8f0; margin: 0 10px;">|</span>
-            <span id="status">{{ '第' + str(done) + '/' + str(total) + '个IP查询中...' if running else '已加载完成' }}</span>
+        <div class="header">
+            <h1>🌐 Nginx 访问统计</h1>
+            <p>访客 IP 属地查询</p>
         </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th width="200">访客 IP</th>
-                    <th width="100">请求次数</th>
-                    <th>属地 (缓存 30 天)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in data %}
-                <tr>
-                    <td><code>{{ item.ip }}</code></td>
-                    <td><b style="color:#3b82f6;">{{ item.count }}</b></td>
-                    <td class="loc-{{ item.ip }}">
-                        {% if item.status == 'pending' %}
-                        <span class="location-loading">待查询</span>
-                        {% else %}
-                        <span class="location-tag">📍 {{ item.location }}</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        
+        <div class="card">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <a class="{{ 'sort-active' if current_sort == 'ip' else 'sort-inactive' }}" href="/?sort=ip&order={{ 'desc' if current_sort == 'ip' and current_order == 'asc' else 'asc' }}">IP {{ '↓' if current_sort == 'ip' and current_order == 'desc' else '↑' }}</a>
+                    <a class="{{ 'sort-active' if current_sort == 'count' else 'sort-inactive' }}" href="/?sort=count&order={{ 'desc' if current_sort == 'count' and current_order == 'asc' else 'asc' }}">次数 {{ '↓' if current_sort == 'count' and current_order == 'desc' else '↑' }}</a>
+                </div>
+                <div class="status-badge {{ 'loading' if running else 'done' }}">
+                    <span class="status-dot"></span>
+                    <span id="status">{{ '第 ' +  str(done) + ' / ' + str(total) + ' 个IP查询中...' if running else '已加载完成' }}</span>
+                </div>
+            </div>
+            
+            {% if data %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>访客 IP</th>
+                        <th width="120">访问次数</th>
+                        <th>属地</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in data %}
+                    <tr>
+                        <td class="ip-cell"><code>{{ item.ip }}</code></td>
+                        <td class="count-cell">{{ item.count }}</td>
+                        <td>
+                            {% if item.status == 'pending' %}
+                            <div class="location-loading">
+                                <span class="spinner"></span>
+                                <span>查询中...</span>
+                            </div>
+                            {% else %}
+                            <div class="location-cell">
+                                <span class="location-main">{{ item.location }}</span>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>暂无访问记录</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="footer">
+            缓存有效期 30 天 · SQLite 本地存储
+        </div>
     </div>
 
     <script>
@@ -65,16 +262,16 @@
                 const st = await res.json();
                 
                 if (st.running) {
-                    document.getElementById('status').innerText = '第' + st.done + '/' + st.total + '个IP查询中...';
+                    document.getElementById('status').innerText = '第 ' + st.done + ' / ' + st.total + ' 个IP查询中...';
                     setTimeout(() => location.reload(), 2000);
                 } else if (st.done > 0 && st.done === st.total) {
                     document.getElementById('status').innerText = '已加载完成';
-                    setTimeout(() => location.reload(), 1000);
+                    setTimeout(() => location.reload(), 1500);
                 }
             } catch(e) {}
         }
         
-        if ({{ 'true' if running else 'false' }}) {
+        if ({{ 'true' if running else 'false' }})) {
             setInterval(updateStatus, 3000);
         }
     </script>
