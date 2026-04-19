@@ -17,6 +17,8 @@ import urllib.error
 import urllib.request
 from collections import Counter
 
+import ip_apis
+
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
@@ -93,6 +95,8 @@ def query_ips_background(ips: list):
         get_ip_location(ip)
         with query_lock:
             query_status["done"] += 1
+        # 每秒最多45个请求 (ip-api限制)
+        time.sleep(0.025)
     
     with query_lock:
         query_status["running"] = False
@@ -138,16 +142,7 @@ def get_ip_location(ip: str) -> str:
 
 def fetch_from_api(ip: str) -> str:
     """从IP-API获取属地"""
-    try:
-        url = f"http://ip-api.com/json/{ip}?lang=zh-CN"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            if data.get("status") == "success":
-                return f"{data.get('country', '')} {data.get('regionName', '')} {data.get('city', '')} [{data.get('isp', '')}]"
-    except Exception as e:
-        print(f"Fetch error: {e}")
-    return None
+    return ip_apis.fetch_location(ip)
 
 def get_log_data(log_file):
     """从指定日志文件读取IP统计"""
