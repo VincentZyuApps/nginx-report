@@ -129,6 +129,7 @@ git commit --allow-empty -m "ci: publish image (build publish)"
 
 # 普通提交（不构建）
 git commit -m "fix: update docs"
+```
 
 ## 🏗️ 构建流程
 
