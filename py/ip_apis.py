@@ -4,6 +4,9 @@
 import json
 import urllib.request
 
+# 当前使用的API名称（用于显示）
+current_api_name = ""
+
 IP_APIS = [
     {
         "name": "pconline",
@@ -71,10 +74,11 @@ def switch_api():
 
 def fetch_location(ip: str) -> str:
     """使用多个API查询IP属地，失败自动切换"""
-    global _api_index
+    global _api_index, current_api_name
     
     for _ in range(len(IP_APIS)):
         api = get_api()
+        current_api_name = api["name"]
         try:
             url = api["url"].format(ip=ip)
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})

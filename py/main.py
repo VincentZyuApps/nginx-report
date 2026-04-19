@@ -68,7 +68,7 @@ DB_FILE = "data/data.db"
 CACHE_TTL = 30 * 24 * 3600  # 30 天
 
 # 全局查询进度
-query_status = {"total": 0, "done": 0, "running": False}
+query_status = {"total": 0, "done": 0, "running": False, "api": ""}
 query_lock = threading.Lock()
 
 def init_db():
@@ -89,12 +89,13 @@ def query_ips_background(ips: list):
     """后台查询IP属地"""
     global query_status
     with query_lock:
-        query_status = {"total": len(ips), "done": 0, "running": True}
+        query_status = {"total": len(ips), "done": 0, "running": True, "api": ip_apis.current_api_name}
     
     for ip in ips:
         get_ip_location(ip)
         with query_lock:
             query_status["done"] += 1
+            query_status["api"] = ip_apis.current_api_name
         # 每秒最多45个请求 (ip-api限制)
         time.sleep(0.025)
     
