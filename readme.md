@@ -66,6 +66,14 @@ CGO_ENABLED=1 go build -o server .
 
 ### Docker Compose
 
+```bash
+# 启动
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+```
+
 ```yaml
 version: '3'
 services:

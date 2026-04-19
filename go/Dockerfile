@@ -10,6 +10,6 @@ WORKDIR /app
 COPY server /app/server
 COPY index.html /app/index.html
 
-EXPOSE 8080
+EXPOSE 60419
 
 CMD ["/app/server"]

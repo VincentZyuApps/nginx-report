@@ -33,6 +33,32 @@
             flex-wrap: wrap;
         }
         
+        .toolbar-left {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .font-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .font-btn:hover {
+            background: white;
+            transform: translateY(-1px);
+        }
+        .font-btn.active {
+            background: #00b894;
+            color: white;
+        }
+        
         .status-bar {
             background: rgba(255,255,255,0.9);
             padding: 12px 20px;
@@ -148,19 +174,68 @@
         </div>
         
         <div class="toolbar">
-            <div class="status-bar">
-                <div class="status-item">
-                    <span class="status-label">总计:</span>
-                    <span class="status-value" id="total">0</span>
+            <div class="toolbar-left">
+                <div class="status-bar">
+                    <div class="status-item">
+                        <span class="status-label">总计:</span>
+                        <span class="status-value" id="total">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">已查询:</span>
+                        <span class="status-value" id="done">0</span>
+                    </div>
+                    <div class="status-item" id="running-status" style="display:none">
+                        <span class="status-label">查询中:</span>
+                        <span class="status-value running">●</span>
+                    </div>
                 </div>
-                <div class="status-item">
-                    <span class="status-label">已查询:</span>
-                    <span class="status-value" id="done">0</span>
-                </div>
-                <div class="status-item" id="running-status" style="display:none">
-                    <span class="status-label">查询中:</span>
-                    <span class="status-value running">●</span>
-                </div>
+                <a href="#" id="font-btn" class="font-btn">字体</a>
+            </div>
+        </div>
+        
+        <style>
+            .font-modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 1000;
+                justify-content: center;
+                align-items: center;
+            }
+            .font-modal.show { display: flex; }
+            .font-modal-content {
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                text-align: center;
+            }
+            .font-modal h3 { margin-bottom: 20px; color: #333; }
+            .font-option {
+                display: block;
+                width: 100%;
+                padding: 12px 24px;
+                margin: 10px 0;
+                border: 2px solid #eee;
+                border-radius: 8px;
+                background: white;
+                cursor: pointer;
+                font-size: 16px;
+                text-decoration: none;
+                color: #333;
+            }
+            .font-option:hover { border-color: #00b894; }
+            .font-option.active { border-color: #00b894; background: #e8f8f5; }
+        </style>
+        
+        <div class="font-modal" id="font-modal">
+            <div class="font-modal-content">
+                <h3>选择字体</h3>
+                <a href="?font=disabled" class="font-option" id="font-disabled">系统默认字体</a>
+                <a href="?font=enabled" class="font-option" id="font-enabled">LXGW 酷酷字体</a>
             </div>
         </div>
         
@@ -187,6 +262,39 @@
     <script>
     const urlParams = new URLSearchParams(window.location.search);
     const currentSort = urlParams.get('sort') || 'count';
+    const currentFont = urlParams.get('font') || 'disabled';
+    
+    // 应用自定义字体
+    if (currentFont === 'enabled') {
+        const style = document.createElement('style');
+        style.textContent = `
+            @font-face { font-family: 'LXGW Mono'; src: url('/static/font.ttf') format('truetype'); }
+            body { font-family: 'LXGW Mono', -apple-system, BlinkMacSystemFont, sans-serif !important; }
+            .ip-cell, .count-cell { font-family: 'LXGW Mono', monospace !important; }
+        `;
+        document.head.appendChild(style);
+        document.getElementById('font-btn').classList.add('active');
+    }
+    
+    // 字体切换按钮
+    document.getElementById('font-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('font-modal').classList.add('show');
+    });
+    
+    // 点击背景关闭
+    document.getElementById('font-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'font-modal') {
+            document.getElementById('font-modal').classList.remove('show');
+        }
+    });
+    
+    // 更新选项高亮
+    if (currentFont === 'enabled') {
+        document.getElementById('font-enabled').classList.add('active');
+    } else {
+        document.getElementById('font-disabled').classList.add('active');
+    }
     
     function renderTable(data) {
         const tbody = document.getElementById('table-body');

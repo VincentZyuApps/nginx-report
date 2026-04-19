@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi import BackgroundTasks
+from fastapi.staticfiles import StaticFiles
 from collections import Counter
 import uvicorn
 import os
@@ -11,6 +11,9 @@ import asyncio
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+
+# 静态文件目录（字体）
+app.mount("/static", StaticFiles(directory="static"), "static")
 
 LOG_FILE = "/var/log/nginx/access.log"
 DB_FILE = "data/data.db"
@@ -118,7 +121,7 @@ def get_log_data():
         return []
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, sort: str = "count", order: str = "desc"):
+async def index(request: Request, sort: str = "count", order: str = "desc", font: str = "disabled"):
     data = get_log_data()
     
     # 排序逻辑
@@ -156,7 +159,8 @@ async def index(request: Request, sort: str = "count", order: str = "desc"):
             "current_order": order,
             "total": str(query_status["total"]),
             "done": str(query_status["done"]),
-            "running": query_status["running"]
+            "running": query_status["running"],
+            "use_custom_font": font == "enabled"
         }
     )
 
