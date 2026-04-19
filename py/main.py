@@ -1,13 +1,21 @@
+# 第三方库
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from collections import Counter
-import uvicorn
-import os
-import time
-import sqlite3
+from fastapi.templating import Jinja2Templates
+
+# 标准库
 import asyncio
+import gzip
+import json
+import os
+import sqlite3
+import threading
+import time
+import urllib.error
+import urllib.request
+from collections import Counter
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -21,28 +29,43 @@ def get_all_log_files():
     """获取所有日志文件（当前+轮转）"""
     log_dir = "/var/log/nginx"
     files = []
+    
     # 当前日志
     if os.path.exists(LOG_FILE):
-        files.append(("current", "当前日志"))
+        files.append(("current", "当前"))
     
-    # 轮转日志 access.log.1, .2, ...
+    # 轮转日志 access.log.1, .2, ... 以及 .gz压缩的
     for i in range(1, 20):
+        # 未压缩的
         path = f"{log_dir}/access.log.{i}"
         if os.path.exists(path):
-            # 获取文件修改时间作为显示名
             mtime = os.path.getmtime(path)
             date = time.strftime("%m-%d", time.localtime(mtime))
-            files.append((f"access.log.{i}", f"{date} 历史"))
-        else:
+            files.append((f"access.log.{i}", f"{i}"))
+            continue
+        
+        # 压缩的
+        gz_path = f"{log_dir}/access.log.{i}.gz"
+        if os.path.exists(gz_path):
+            mtime = os.path.getmtime(gz_path)
+            date = time.strftime("%m-%d", time.localtime(mtime))
+            files.append((f"access.log.{i}.gz", f"{i}"))
+            continue
+        
+        # 如果都不存在，停止遍历
+        if not os.path.exists(path) and not os.path.exists(gz_path):
+            # 允许中间有间隙，继续找下一个
+            if i < 5:
+                continue
             break
     
     return files
+
+# 数据库配置
 DB_FILE = "data/data.db"
 CACHE_TTL = 30 * 24 * 3600  # 30 天
 
 # 全局查询进度
-import threading
-
 query_status = {"total": 0, "done": 0, "running": False}
 query_lock = threading.Lock()
 
@@ -116,9 +139,6 @@ def get_ip_location(ip: str) -> str:
 def fetch_from_api(ip: str) -> str:
     """从IP-API获取属地"""
     try:
-        import urllib.request
-        import urllib.error
-        import json
         url = f"http://ip-api.com/json/{ip}?lang=zh-CN"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as response:
@@ -133,9 +153,16 @@ def get_log_data(log_file):
     """从指定日志文件读取IP统计"""
     if not os.path.exists(log_file):
         return []
+    
     try:
-        with open(log_file, "r", encoding="utf-8") as f:
-            ips = [line.split()[0] for line in f if line.strip() and len(line.split()) > 0]
+        ips = []
+        if log_file.endswith('.gz'):
+            with gzip.open(log_file, 'rt', encoding='utf-8') as f:
+                ips = [line.split()[0] for line in f if line.strip() and len(line.split()) > 0]
+        else:
+            with open(log_file, "r", encoding="utf-8") as f:
+                ips = [line.split()[0] for line in f if line.strip() and len(line.split()) > 0]
+        
         if not ips:
             return []
         counter = Counter(ips)
@@ -148,7 +175,7 @@ def get_log_data(log_file):
 async def index(request: Request, sort: str = None, order: str = None, font: str = None, logfile: str = None):
     # 默认重定向到完整参数
     if sort is None or order is None or font is None:
-        return RedirectResponse(url=f"/?sort=count&order=desc&font=enabled")
+        return RedirectResponse(url=f"/?logfile=current&sort=count&order=desc&font=enabled")
     
     # 获取可选的日志文件列表
     all_log_files = get_all_log_files()

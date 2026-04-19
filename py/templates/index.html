@@ -63,8 +63,68 @@
         }
         
         .toolbar-left {
+            position: relative;
+        }
+        
+        .log-dropdown-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: #009639;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
             display: flex;
-            gap: 4px;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .log-dropdown-btn::after {
+            content: '▼';
+            font-size: 8px;
+        }
+        
+        .log-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid #009639;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            min-width: 120px;
+            overflow: hidden;
+        }
+        
+        .log-dropdown-menu.show {
+            display: block;
+        }
+        
+        .log-dropdown-menu a {
+            display: block;
+            padding: 10px 16px;
+            color: #333;
+            text-decoration: none;
+            font-size: 13px;
+            border-bottom: 1px solid #e6f4ea;
+        }
+        
+        .log-dropdown-menu a:last-child {
+            border-bottom: none;
+        }
+        
+        .log-dropdown-menu a:hover {
+            background: #e6f4ea;
+            color: #009639;
+        }
+        
+        .log-dropdown-menu a.active {
+            background: #009639;
+            color: #fff;
         }
         
         .toolbar-right {
@@ -215,9 +275,16 @@
         <div class="card">
             <div class="toolbar">
                 <div class="toolbar-left">
-                    {% for name, label in all_log_files %}
-                    <a class="{{ 'sort-active' if current_logfile == name else 'sort-inactive' }}" href="/?logfile={{ name }}&sort={{ current_sort }}&order={{ current_order }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">{{ label }}</a>
-                    {% endfor %}
+                    <div class="log-dropdown">
+                        <button class="log-dropdown-btn" onclick="this.nextElementSibling.classList.toggle('show')">
+                            日志 {{ all_log_files|length }} 个
+                        </button>
+                        <div class="log-dropdown-menu">
+                            {% for name, label in all_log_files %}
+                            <a class="{{ 'active' if current_logfile == name else '' }}" href="/?logfile={{ name }}&sort={{ current_sort }}&order={{ current_order }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">{{ label }}</a>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
                 <div class="toolbar-right">
                     <a class="{{ 'sort-active' if current_sort == 'ip' else 'sort-inactive' }}" href="/?logfile={{ current_logfile }}&sort=ip&order={{ 'desc' if current_sort == 'ip' and current_order == 'asc' else 'asc' }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">IP {{ '↓' if current_sort == 'ip' and current_order == 'desc' else '↑' }}</a>
