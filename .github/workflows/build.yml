@@ -54,25 +54,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            vincentzyu/nginx-report
-            ghcr.io/${{ github.actor }}/nginx-report
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix=
-            type=raw,value=latest,enable=true
-      
       - name: Build and push Docker image
         if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
         uses: docker/build-push-action@v6
         with:
           context: ./go
           push: true
-          tags: ${{ meta.outputs.tags }}
-          labels: ${{ meta.outputs.labels }}
+          tags: vincentzyu/nginx-report:latest,ghcr.io/${{ github.actor }}/nginx-report:latest
+          labels: org.opencontainers.image.title=nginx-report,org.opencontainers.image.description=Nginx access log statistics
           cache-from: type=gha
           cache-to: type=gha,mode=max
