@@ -1,6 +1,9 @@
 # IP查询API列表（按优先级排序）
 # 每次查询从第一个开始，失败自动切换下一个
 
+import json
+import urllib.request
+
 IP_APIS = [
     {
         "name": "pconline",
