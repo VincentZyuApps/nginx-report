@@ -331,8 +331,8 @@
                         <td class="count-cell">{{ item.count }}</td>
                         <td>
                             {% if item.status == 'pending' %}
-                            {% if item.retry|int > 0 %}
-                            <span class="location-pending">第{{ item.retry }}次重试...</span>
+                            {% if item.get('retry', 0)|int > 0 %}
+                            <span class="location-pending">第{{ item.get('retry', 0) }}次重试...</span>
                             {% else %}
                             <span class="location-loading"><span class="spinner"></span></span>
                             {% endif %}
