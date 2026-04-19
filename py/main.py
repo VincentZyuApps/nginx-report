@@ -79,6 +79,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS ip_cache (
             ip TEXT PRIMARY KEY,
             location TEXT,
+            api_source TEXT,
             timestamp INTEGER
         )
     """)
@@ -110,22 +111,22 @@ def get_cached_location(ip: str) -> tuple:
     """获取缓存的IP属地"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("SELECT location, timestamp FROM ip_cache WHERE ip = ?", (ip,))
+    cursor.execute("SELECT location, api_source, timestamp FROM ip_cache WHERE ip = ?", (ip,))
     row = cursor.fetchone()
     conn.close()
     
     if row:
-        location, timestamp = row
+        location, api_source, timestamp = row
         if time.time() - timestamp < CACHE_TTL:
-            return (location, timestamp)
+            return (location, api_source, timestamp)
     return None
 
-def save_location(ip: str, location: str):
+def save_location(ip: str, location: str, api_source: str):
     """保存IP属地到缓存"""
     conn = sqlite3.connect(DB_FILE)
     conn.execute(
-        "INSERT OR REPLACE INTO ip_cache (ip, location, timestamp) VALUES (?, ?, ?)",
-        (ip, location, int(time.time()))
+        "INSERT OR REPLACE INTO ip_cache (ip, location, api_source, timestamp) VALUES (?, ?, ?, ?)",
+        (ip, location, api_source, int(time.time()))
     )
     conn.commit()
     conn.close()
@@ -138,7 +139,7 @@ def get_ip_location(ip: str) -> str:
     
     location = fetch_from_api(ip)
     if location:
-        save_location(ip, location)
+        save_location(ip, location, ip_apis.current_api_name)
     return location or "查询失败"
 
 def fetch_from_api(ip: str) -> str:
@@ -200,9 +201,11 @@ async def index(request: Request, sort: str = None, order: str = None, font: str
         cached = get_cached_location(item["ip"])
         if cached:
             item["location"] = cached[0]
+            item["api_source"] = cached[1]
             item["status"] = "done"
         else:
             item["location"] = "待查询"
+            item["api_source"] = ""
             item["status"] = "pending"
     
     # 启动后台查询

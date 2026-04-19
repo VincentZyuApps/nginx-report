@@ -305,9 +305,10 @@
             <table>
                 <thead>
                     <tr>
-                        <th>访客 IP</th>
-                        <th width="120">访问次数</th>
+                        <th width="140">访客 IP</th>
+                        <th width="100">访问次数</th>
                         <th>属地</th>
+                        <th width="80">API</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -322,6 +323,7 @@
                             <span class="location-cell">{{ item.location }}</span>
                             {% endif %}
                         </td>
+                        <td class="api-cell">{{ item.api_source }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
