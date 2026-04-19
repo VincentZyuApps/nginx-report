@@ -16,6 +16,27 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), "static")
 
 LOG_FILE = "/var/log/nginx/access.log"
+
+def get_all_log_files():
+    """获取所有日志文件（当前+轮转）"""
+    log_dir = "/var/log/nginx"
+    files = []
+    # 当前日志
+    if os.path.exists(LOG_FILE):
+        files.append(("current", "当前日志"))
+    
+    # 轮转日志 access.log.1, .2, ...
+    for i in range(1, 20):
+        path = f"{log_dir}/access.log.{i}"
+        if os.path.exists(path):
+            # 获取文件修改时间作为显示名
+            mtime = os.path.getmtime(path)
+            date = time.strftime("%m-%d", time.localtime(mtime))
+            files.append((f"access.log.{i}", f"{date} 历史"))
+        else:
+            break
+    
+    return files
 DB_FILE = "data/data.db"
 CACHE_TTL = 30 * 24 * 3600  # 30 天
 
@@ -108,12 +129,15 @@ def fetch_from_api(ip: str) -> str:
         print(f"Fetch error: {e}")
     return None
 
-def get_log_data():
-    if not os.path.exists(LOG_FILE):
+def get_log_data(log_file):
+    """从指定日志文件读取IP统计"""
+    if not os.path.exists(log_file):
         return []
     try:
-        with open(LOG_FILE, "r", encoding="utf-8") as f:
+        with open(log_file, "r", encoding="utf-8") as f:
             ips = [line.split()[0] for line in f if line.strip() and len(line.split()) > 0]
+        if not ips:
+            return []
         counter = Counter(ips)
         return [{"ip": ip, "count": count} for ip, count in counter.items()]
     except Exception as e:
@@ -121,11 +145,25 @@ def get_log_data():
         return []
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, sort: str = None, order: str = None, font: str = None):
+async def index(request: Request, sort: str = None, order: str = None, font: str = None, logfile: str = None):
     # 默认重定向到完整参数
     if sort is None or order is None or font is None:
         return RedirectResponse(url=f"/?sort=count&order=desc&font=enabled")
-    data = get_log_data()
+    
+    # 获取可选的日志文件列表
+    all_log_files = get_all_log_files()
+    
+    # 默认使用当前日志
+    if logfile is None:
+        logfile = "current"
+    
+    # 读取指定日志文件
+    if logfile == "current":
+        log_path = "/var/log/nginx/access.log"
+    else:
+        log_path = f"/var/log/nginx/{logfile}"
+    
+    data = get_log_data(log_path)
     
     # 排序逻辑
     is_reverse = (order == "desc")
@@ -163,7 +201,9 @@ async def index(request: Request, sort: str = None, order: str = None, font: str
             "total": str(query_status["total"]),
             "done": str(query_status["done"]),
             "running": query_status["running"],
-            "use_custom_font": font == "enabled"
+            "use_custom_font": font == "enabled",
+            "all_log_files": all_log_files,
+            "current_logfile": logfile
         }
     )
 

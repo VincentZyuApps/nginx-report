@@ -67,6 +67,20 @@
             gap: 4px;
         }
         
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .toolbar-bottom {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 12px 20px;
+            border-top: 1px solid #009639;
+        }
+        
         .toolbar a {
             padding: 6px 12px;
             border-radius: 6px;
@@ -201,11 +215,19 @@
         <div class="card">
             <div class="toolbar">
                 <div class="toolbar-left">
-                    <a class="{{ 'sort-active' if current_sort == 'ip' else 'sort-inactive' }}" href="/?sort=ip&order={{ 'desc' if current_sort == 'ip' and current_order == 'asc' else 'asc' }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">IP {{ '↓' if current_sort == 'ip' and current_order == 'desc' else '↑' }}</a>
-                    <a class="{{ 'sort-active' if current_sort == 'count' else 'sort-inactive' }}" href="/?sort=count&order={{ 'desc' if current_sort == 'count' and current_order == 'asc' else 'asc' }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">次数 {{ '↓' if current_sort == 'count' and current_order == 'desc' else '↑' }}</a>
-                    <span style="width:1px;height:16px;background:#ddd;margin:0 8px;"></span>
-                    <a class="{{ 'sort-active' if use_custom_font else 'sort-inactive' }}" href="/?sort={{ current_sort }}&order={{ current_order }}&font={{ 'disabled' if use_custom_font else 'enabled' }}">字体 {{ '✓' if use_custom_font else '' }}</a>
+                    {% for name, label in all_log_files %}
+                    <a class="{{ 'sort-active' if current_logfile == name else 'sort-inactive' }}" href="/?logfile={{ name }}&sort={{ current_sort }}&order={{ current_order }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">{{ label }}</a>
+                    {% endfor %}
                 </div>
+                <div class="toolbar-right">
+                    <a class="{{ 'sort-active' if current_sort == 'ip' else 'sort-inactive' }}" href="/?logfile={{ current_logfile }}&sort=ip&order={{ 'desc' if current_sort == 'ip' and current_order == 'asc' else 'asc' }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">IP {{ '↓' if current_sort == 'ip' and current_order == 'desc' else '↑' }}</a>
+                    <a class="{{ 'sort-active' if current_sort == 'count' else 'sort-inactive' }}" href="/?logfile={{ current_logfile }}&sort=count&order={{ 'desc' if current_sort == 'count' and current_order == 'asc' else 'asc' }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">次数 {{ '↓' if current_sort == 'count' and current_order == 'desc' else '↑' }}</a>
+                    <span style="width:1px;height:16px;background:#009639;margin:0 8px;"></span>
+                    <a class="{{ 'sort-active' if use_custom_font else 'sort-inactive' }}" href="/?logfile={{ current_logfile }}&sort={{ current_sort }}&order={{ current_order }}&font={{ 'disabled' if use_custom_font else 'enabled' }}">字体 {{ '✓' if use_custom_font else '' }}</a>
+                </div>
+            </div>
+            
+            <div class="toolbar-bottom">
                 <div class="status-badge {{ 'loading' if running else 'done' }}">
                     <span class="status-dot"></span>
                     <span id="status">{{ '第 ' + done + ' / ' + total + ' 个IP查询中...' if running else '已加载完成' }}</span>
