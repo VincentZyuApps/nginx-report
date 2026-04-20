@@ -174,14 +174,69 @@ def fetch_from_cip(ip: str):
     return None
 
 
+def fetch_from_baidu_opendata(ip: str):
+    """百度IP定位API - 返回: 省份 城市 ISP"""
+    try:
+        url = f"https://opendata.baidu.com/api.php?co=&resource_id=6006&oe=utf8&query={ip}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data.get("status") == "0" and data.get("data"):
+                location = data["data"][0].get("location", "")
+                # 格式: "福建省厦门市 电信" -> 提取省份/城市/ISP
+                parts = location.split()
+                if parts:
+                    result = parts[0]  # "福建省厦门市"
+                    if len(parts) > 1:
+                        isp = parts[1]
+                        # 简化ISP
+                        ispTxt = ""
+                        for name in ["电信", "联通", "移动", "铁通", "教育网", "科技网"]:
+                            if name in isp:
+                                ispTxt = name
+                                break
+                        if ispTxt:
+                            result += f" [{ispTxt}]"
+                    return result
+    except Exception as e:
+        print(f"[baidu.opendata] Error: {e}")
+    return None
+
+
+def fetch_from_qq_inews(ip: str):
+    """QQ新闻IP查询API - 返回: 国家/省份/城市"""
+    try:
+        url = "https://r.inews.qq.com/api/ip2city"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data.get("ret") == 0:
+                province = data.get("province", "")
+                city = data.get("city", "")
+                country = data.get("country", "中国")
+                
+                if country == "中国" and province:
+                    result = province
+                    if city and city != province:
+                        result += " " + city
+                    return result
+                elif country:
+                    return COUNTRY_MAP.get(country, country)
+    except Exception as e:
+        print(f"[qq.inews] Error: {e}")
+    return None
+
+
 # ==================== API列表 ====================
 # (名称, 函数, 是否有速率限制)
 APIS = [
-    ("ip-api", fetch_from_ipapi, True),      # 45次/分钟
+    ("ip-api", fetch_from_ipapi, True),           # 45次/分钟
     ("cip", fetch_from_cip, False),
     ("pconline", fetch_from_pconline, False),
     ("ip.sb", fetch_from_ipsb, False),
     ("ipwhois", fetch_from_ipwhois, False),
+    ("baidu", fetch_from_baidu_opendata, False),
+    ("qq", fetch_from_qq_inews, False),
 ]
 
 
