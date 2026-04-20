@@ -204,20 +204,21 @@ def fetch_from_baidu_opendata(ip: str):
 
 
 # ==================== API列表 ====================
-# 优先无限制API，避免限流
+# ip-api最稳定（45次/分钟），放第一位
+# 其他无限制API作为备用
 APIS = [
-    ("cip", fetch_from_cip, False),                # 无限制
-    ("pconline", fetch_from_pconline, False),      # 无限制
-    ("baidu", fetch_from_baidu_opendata, False),   # 无限制
-    ("ip.sb", fetch_from_ipsb, False),             # 无限制
-    ("ipwhois", fetch_from_ipwhois, False),        # 无限制
-    ("ip-api", fetch_from_ipapi, True),            # 45次/分钟，备用
+    ("ip-api", fetch_from_ipapi, True),             # 45次/分钟，最稳定
+    ("cip", fetch_from_cip, False),                 # 无限制，备用1
+    ("pconline", fetch_from_pconline, False),      # 无限制，备用2
+    ("baidu", fetch_from_baidu_opendata, False),   # 无限制，备用3
+    ("ip.sb", fetch_from_ipsb, False),             # 无限制，备用4
+    ("ipwhois", fetch_from_ipwhois, False),         # 无限制，备用5
 ]
 
 
 # 当前使用的API索引
 _api_index = 0
-_api_name = "ip-api"
+_api_name = "ip-api"  # 初始值与APIS[0]一致
 
 
 def fetch_location(ip: str):
