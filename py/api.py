@@ -203,40 +203,15 @@ def fetch_from_baidu_opendata(ip: str):
     return None
 
 
-def fetch_from_qq_inews(ip: str):
-    """QQ新闻IP查询API - 返回: 国家/省份/城市"""
-    try:
-        url = "https://r.inews.qq.com/api/ip2city"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=8) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            if data.get("ret") == 0:
-                province = data.get("province", "")
-                city = data.get("city", "")
-                country = data.get("country", "中国")
-                
-                if country == "中国" and province:
-                    result = province
-                    if city and city != province:
-                        result += " " + city
-                    return result
-                elif country:
-                    return COUNTRY_MAP.get(country, country)
-    except Exception as e:
-        print(f"[qq.inews] Error: {e}")
-    return None
-
-
 # ==================== API列表 ====================
-# (名称, 函数, 是否有速率限制)
+# 优先无限制API，避免限流
 APIS = [
-    ("ip-api", fetch_from_ipapi, True),           # 45次/分钟
-    ("cip", fetch_from_cip, False),
-    ("pconline", fetch_from_pconline, False),
-    ("ip.sb", fetch_from_ipsb, False),
-    ("ipwhois", fetch_from_ipwhois, False),
-    ("baidu", fetch_from_baidu_opendata, False),
-    ("qq", fetch_from_qq_inews, False),
+    ("cip", fetch_from_cip, False),                # 无限制
+    ("pconline", fetch_from_pconline, False),      # 无限制
+    ("baidu", fetch_from_baidu_opendata, False),   # 无限制
+    ("ip.sb", fetch_from_ipsb, False),             # 无限制
+    ("ipwhois", fetch_from_ipwhois, False),        # 无限制
+    ("ip-api", fetch_from_ipapi, True),            # 45次/分钟，备用
 ]
 
 
@@ -263,6 +238,29 @@ def fetch_location(ip: str):
             return location
     
     return None
+
+
+def fetch_location_with_source(ip: str):
+    """尝试多个API获取IP属地，返回(位置, API名称)"""
+    global _api_index, _api_name
+    
+    for i in range(len(APIS)):
+        idx = (_api_index + i) % len(APIS)
+        api_name, api_func, has_rate_limit = APIS[idx]
+        
+        print(f"[DEBUG] 尝试 API: {api_name} for IP: {ip}")
+        location = api_func(ip)
+        if location:
+            _api_index = idx
+            _api_name = api_name
+            # 如果刚用了限速API，等待
+            if has_rate_limit:
+                time.sleep(0.025)
+            print(f"[DEBUG] 成功: {api_name} -> {location}")
+            return (location, api_name)
+    
+    print(f"[DEBUG] 所有API均失败 for IP: {ip}")
+    return (None, _api_name)
 
 
 def get_current_api():

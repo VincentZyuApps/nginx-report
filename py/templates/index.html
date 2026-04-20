@@ -242,6 +242,12 @@
             font-size: 13px;
         }
         
+        .location-debug {
+            color: #666;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        
         .spinner {
             display: inline-block;
             width: 12px;
@@ -304,8 +310,10 @@
                     <span class="status-dot"></span>
                     <span id="status">
                         {% if running %}
-                        第 {{ done }} / {{ total }} 个，第 {{ retry|int + 1 }} 次查询中...
-                        {% if next_retry|int > 0 %}，第 {{ retry }} 次重试，距离下次还剩 {{ next_retry }} 秒{% endif %}
+                        第 {{ done }} / {{ total }} 个IP查询中...
+                        {% if current_api %}，当前: {{ current_api }}{% endif %}
+                        {% if retry|int > 0 %}，第 {{ retry }} 次重试{% endif %}
+                        {% if next_retry|float > 0 %}，等待 {{ next_retry }}s{% endif %}
                         {% else %}
                         已加载完成
                         {% endif %}
@@ -330,10 +338,14 @@
                         <td class="count-cell">{{ item.count }}</td>
                         <td>
                             {% if item.status == 'pending' %}
-                            {% if item.get('retry', 0)|int > 0 %}
-                            <span class="location-pending">第{{ item.get('retry', 0) }}次重试...</span>
-                            {% else %}
-                            <span class="location-loading"><span class="spinner"></span></span>
+                            <span class="location-loading">
+                                <span class="spinner"></span>
+                                {% if item.get('retry', 0)|int > 0 %}
+                                第{{ item.get('retry', 0) }}次重试
+                                {% endif %}
+                            </span>
+                            {% if item.get('current_api') %}
+                            <span class="location-debug">({{ item.get('current_api') }})</span>
                             {% endif %}
                             {% else %}
                             <span class="location-cell">{{ item.location }}</span>
@@ -363,7 +375,11 @@
                 const st = await res.json();
                 
                 if (st.running) {
-                    document.getElementById('status').innerText = '第 ' + st.done + ' / ' + st.total + ' 个IP查询中...';
+                    let text = `第 ${st.done} / ${st.total} 个IP查询中...`;
+                    if (st.api) text += `，当前: ${st.api}`;
+                    if (st.retry > 0) text += `，第${st.retry}次重试`;
+                    if (st.next_retry > 0) text += `，等待${st.next_retry}s`;
+                    document.getElementById('status').innerText = text;
                     setTimeout(() => location.reload(), 2000);
                 } else if (st.done > 0 && st.done === st.total) {
                     document.getElementById('status').innerText = '已加载完成';

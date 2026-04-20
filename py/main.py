@@ -100,12 +100,12 @@ def query_ips_background(ips: list):
         query_status = {"total": len(ips), "done": 0, "running": True, "api": get_current_api(), "retry": 0, "next_retry": 0}
     
     for ip in ips:
-        location = fetch_location(ip)
+        location, api_used = fetch_location_with_source(ip)
         retry_count = retry_count + (1 if location is None else -retry_count)
         
         with query_lock:
             query_status["done"] += 1
-            query_status["api"] = get_current_api()
+            query_status["api"] = api_used
             query_status["retry"] = max(0, retry_count)
             query_status["next_retry"] = delay if location is None else 0
         
@@ -156,9 +156,9 @@ def get_ip_location(ip: str) -> str:
     if cached:
         return cached[0]
     
-    location = fetch_location(ip)
+    location, api_used = fetch_location_with_source(ip)
     if location:
-        save_location(ip, location, get_current_api())
+        save_location(ip, location, api_used)
     return location or "查询失败"
 
 def get_log_data(log_file):
@@ -242,6 +242,7 @@ async def index(request: Request, sort: str = None, order: str = None, font: str
             "total": str(query_status["total"]),
             "done": str(query_status["done"]),
             "running": query_status["running"],
+            "current_api": query_status.get("api", ""),
             "retry": str(query_status.get("retry", 0)),
             "next_retry": str(round(query_status.get("next_retry", 0), 1)),
             "use_custom_font": font == "enabled",
