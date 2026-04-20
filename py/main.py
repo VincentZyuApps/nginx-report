@@ -76,28 +76,126 @@ def normalize_location(country: str, region: str, city: str, isp: str) -> str:
     
     return result.strip()
 
-def fetch_location(ip: str) -> str:
-    """使用IP-API查询IP属地，失败无限重试"""
-    delay = 2
+# ==================== 多API支持 ====================
+# 按优先级排序：ip-api(限速) -> pconline -> ipsb -> ipwhois
+
+def fetch_from_ipapi(ip: str) -> str:
+    """ip-api.com - 免费版45次/分钟，返回: 国家/省/城市/ISP"""
+    try:
+        url = f"http://demo.ip-api.com/json/{ip}?fields=66842623&lang=zh-CN"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data.get("status") == "success":
+                return normalize_location(
+                    data.get("country", ""),
+                    data.get("regionName", ""),
+                    data.get("city", ""),
+                    data.get("isp", "")
+                )
+    except Exception as e:
+        print(f"[ip-api] Error: {e}")
+    return None
+
+def fetch_from_pconline(ip: str) -> str:
+    """pconline.com.cn - 淘宝IP库，返回: 省/城市"""
+    try:
+        url = f"https://whois.pconline.com.cn/ipJson.jsp?ip={ip}&json=true"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("gbk"))
+            if data.get("pro"):
+                pro = data.get("pro", "")
+                city = data.get("city", "")
+                return f"{pro} {city}".strip()
+    except Exception as e:
+        print(f"[pconline] Error: {e}")
+    return None
+
+def fetch_from_ipsb(ip: str) -> str:
+    """ip.sb - 免费无限制，返回: 国家/省/城市/ISP/AS"""
+    try:
+        url = f"https://api.ip.sb/geoip/{ip}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data.get("country"):
+                return normalize_location(
+                    data.get("country", ""),
+                    data.get("region", ""),
+                    data.get("city", ""),
+                    data.get("isp", "")
+                )
+    except Exception as e:
+        print(f"[ip.sb] Error: {e}")
+    return None
+
+def fetch_from_ipwhois(ip: str) -> str:
+    """ipwhois.app - 返回: 国家/省/城市/ISP/经纬度"""
+    try:
+        url = f"https://ipwhois.app/json/{ip}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data.get("country"):
+                return normalize_location(
+                    data.get("country", ""),
+                    data.get("region", ""),
+                    data.get("city", ""),
+                    data.get("isp", "")
+                )
+    except Exception as e:
+        print(f"[ipwhois] Error: {e}")
+    return None
+
+def fetch_from_ipapi2location(ip: str) -> str:
+    """ip2location.io - 免费版5000次/天，返回: 国家/省/城市/ISP"""
+    try:
+        url = f"https://api.ip2location.io/?key=demo&ip={ip}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data.get("country_code"):
+                return normalize_location(
+                    data.get("country_name", ""),
+                    data.get("region_name", ""),
+                    data.get("city_name", ""),
+                    data.get("isp", "")
+                )
+    except Exception as e:
+        print(f"[ip2location] Error: {e}")
+    return None
+
+# API列表: (名称, 函数, 是否有速率限制)
+APIS = [
+    ("ip-api", fetch_from_ipapi, True),      # 45次/分钟
+    ("pconline", fetch_from_pconline, False),
+    ("ip.sb", fetch_from_ipsb, False),
+    ("ipwhois", fetch_from_ipwhois, False),
+]
+
+# 当前使用的API索引
+_api_index = 0
+_api_name = "ip-api"
+
+def fetch_from_api(ip: str) -> str:
+    """尝试多个API获取IP属地，按顺序遍历直到成功"""
+    global _api_index, _api_name
     
-    while True:
-        try:
-            url = f"http://demo.ip-api.com/json/{ip}?fields=66842623&lang=zh-CN"
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=8) as response:
-                data = json.loads(response.read().decode("utf-8"))
-                if data.get("status") == "success":
-                    return normalize_location(
-                        data.get("country", ""),
-                        data.get("regionName", ""),
-                        data.get("city", ""),
-                        data.get("isp", "")
-                    )
-        except Exception as e:
-            print(f"[ip-api] Error: {e}")
+    for i in range(len(APIS)):
+        idx = (_api_index + i) % len(APIS)
+        api_name, api_func, has_rate_limit = APIS[idx]
         
-        time.sleep(delay)
-        delay = min(delay * 2, 1024)
+        location = api_func(ip)
+        if location:
+            _api_index = idx
+            _api_name = api_name
+            # 如果刚用了限速API，等待
+            if has_rate_limit:
+                time.sleep(0.025)
+            return location
+    
+    return None
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -178,7 +276,7 @@ def query_ips_background(ips: list):
     retry_count = 0
     
     with query_lock:
-        query_status = {"total": len(ips), "done": 0, "running": True, "api": current_api_name, "retry": 0, "next_retry": 0}
+        query_status = {"total": len(ips), "done": 0, "running": True, "api": _api_name, "retry": 0, "next_retry": 0}
     
     for ip in ips:
         location = fetch_from_api(ip)
@@ -186,7 +284,7 @@ def query_ips_background(ips: list):
         
         with query_lock:
             query_status["done"] += 1
-            query_status["api"] = current_api_name
+            query_status["api"] = _api_name
             query_status["retry"] = max(0, retry_count)
             query_status["next_retry"] = delay if location is None else 0
         
@@ -239,12 +337,8 @@ def get_ip_location(ip: str) -> str:
     
     location = fetch_from_api(ip)
     if location:
-        save_location(ip, location, current_api_name)
+        save_location(ip, location, _api_name)
     return location or "查询失败"
-
-def fetch_from_api(ip: str) -> str:
-    """从IP-API获取属地"""
-    return fetch_location(ip)
 
 def get_log_data(log_file):
     """从指定日志文件读取IP统计"""
