@@ -58,6 +58,13 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate version tag
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+        id: version
+        run: |
+          VERSION="${GITHUB_SHA:0:7}-$(date +%Y%m%d-%H%M%S)"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
         if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
         uses: docker/build-push-action@v6
@@ -66,7 +73,19 @@ jobs:
           push: true
           tags: |
             vincentzyu233/nginx-report:latest
+            vincentzyu233/nginx-report:${{ steps.version.outputs.version }}
             ghcr.io/vincentzyuapps/nginx-report:latest
+            ghcr.io/vincentzyuapps/nginx-report:${{ steps.version.outputs.version }}
           labels: |
             org.opencontainers.image.title=nginx-report
             org.opencontainers.image.description=Nginx access log statistics
+
+      - name: Update Docker Hub README
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+        uses: peter-evans/dockerhub-description@v3
+        with:
+          args: |
+            --public-repo-description-file=readme.md
+          dockerhub: vincentzyu233/nginx-report
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
