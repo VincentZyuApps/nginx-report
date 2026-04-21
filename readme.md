@@ -13,6 +13,15 @@ Nginx access log statistics tool that queries visitor IP locations and displays 
 [![Docker Image Pulls](https://img.shields.io/docker/pulls/vincentzyu233/nginx-report?style=for-the-badge)](https://hub.docker.com/r/vincentzyu233/nginx-report)
 [![Docker Image Build and Publish](https://github.com/VincentZyuApps/nginx-report/actions/workflows/build.yml/badge.svg)](https://github.com/VincentZyuApps/nginx-report/actions/workflows/build.yml)
 
+--- 
+
+## Preview
+
+## WebUI Preview
+![doc/preview-images/nginx-report-py-version-preview.png](doc/preview-images/nginx-report-py-version-preview.png)
+
+---
+
 ## Python Version
 
 ### Quick Start
@@ -143,8 +152,3 @@ docker compose logs -f
 > ```
 
 ---
-
-## Preview
-
-## WebUI Preview
-![doc/preview-images/nginx-report-py-version-preview.png](doc/preview-images/nginx-report-py-version-preview.png)

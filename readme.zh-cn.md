@@ -13,6 +13,15 @@ Nginx access log 统计工具，查询访客 IP 属地并展示排行榜。
 [![Docker Image Pulls](https://img.shields.io/docker/pulls/vincentzyu233/nginx-report?style=for-the-badge)](https://hub.docker.com/r/vincentzyu233/nginx-report)
 [![Docker Image Build and Publish](https://github.com/VincentZyuApps/nginx-report/actions/workflows/build.yml/badge.svg)](https://github.com/VincentZyuApps/nginx-report/actions/workflows/build.yml)
 
+---
+
+## 效果预览
+
+## WebUI 预览
+![doc/preview-images/nginx-report-py-version-preview.png](doc/preview-images/nginx-report-py-version-preview.png)
+
+---
+
 ## Python 版本
 
 ### 快速开始
@@ -143,8 +152,3 @@ docker compose logs -f
 > ```
 
 ---
-
-## 效果预览
-
-## WebUI 预览
-![doc/preview-images/nginx-report-py-version-preview.png](doc/preview-images/nginx-report-py-version-preview.png)
