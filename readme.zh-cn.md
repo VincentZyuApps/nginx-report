@@ -49,14 +49,33 @@ DB_FILE = "data/data.db"    # SQLite 数据库路径
 
 ```bash
 # 基础运行（容器删除后数据丢失）
-docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
+docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
 # china mainlan user can use DaoCloud image:
-docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro m.daocloud.io/docker.io/vincentzyu233/nginx-report:latest 
+docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro m.daocloud.io/docker.io/vincentzyu233/nginx-report:latest 
 # 如果你想做数据持久化
-docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro -v ./data:/app/data vincentzyu233/nginx-report:latest
+docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro -v ./data:/app/data vincentzyu233/nginx-report:latest
 ```
 
 然后访问 `http://{你的ip}:60419` 打开webui~
+
+> **更新到最新镜像：**
+> ```bash
+> docker stop nginx-report && docker rm nginx-report
+> docker pull vincentzyu233/nginx-report:latest
+> # 重新运行，使用上面的相同参数
+> docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
+> ```
+
+> 手动配置docker镜像源:
+> ```bash
+> nano /etc/docker/daemon.json
+> ```
+> ```json
+> { "registry-mirrors": ["https://docker.1ms.run"] }
+> ```
+> ```bash
+> systemctl restart docker
+> ```
 
 ### 环境变量
 
@@ -91,12 +110,16 @@ docker compose up -d
 
 # 查看日志
 docker compose logs -f
+
+# 更新到最新镜像：拉取最新镜像，然后重新创建并启动容器（使用新配置/新镜像，如果有更新的话）
+docker compose pull && docker compose up -d
 ```
 
 ```yaml
 version: '3'
 services:
   nginx-report:
+    container_name: nginx-report
     image: vincentzyu233/nginx-report:latest
     ports:
       - "60419:60419"

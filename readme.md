@@ -49,14 +49,33 @@ DB_FILE = "data/data.db"    # SQLite database path
 
 ```bash
 # basic run (data will be lost when container is removed)
-docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
+docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
 # 大陆用户可以使用 DaoCloud 镜像:
-docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro m.daocloud.io/docker.io/vincentzyu233/nginx-report:latest 
+docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro m.daocloud.io/docker.io/vincentzyu233/nginx-report:latest 
 # with data persistence
-docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro -v ./data:/app/data vincentzyu233/nginx-report:latest
+docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro -v ./data:/app/data vincentzyu233/nginx-report:latest
 ```
 
 then open `http://{your_ip}:60419` to access webui~
+
+> **Update to latest image:**
+> ```bash
+> docker stop nginx-report && docker rm nginx-report
+> docker pull vincentzyu233/nginx-report:latest
+> # re-run with same parameters as above
+> docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
+> ```
+
+> manually configure docker image registry mirror:
+> ```bash
+> nano /etc/docker/daemon.json
+> ```
+> ```json
+> { "registry-mirrors": ["https://docker.1ms.run"] }
+> ```
+> ```bash
+> systemctl restart docker
+> ```
 
 ### Environment Variables
 
@@ -91,12 +110,16 @@ docker compose up -d
 
 # view logs
 docker compose logs -f
+
+# update to latest image: pull latest, then recreate & start container with new config/image (if updated)
+docker compose pull && docker compose up -d
 ```
 
 ```yaml
 version: '3'
 services:
   nginx-report:
+    container_name: nginx-report
     image: vincentzyu233/nginx-report:latest
     ports:
       - "60419:60419"

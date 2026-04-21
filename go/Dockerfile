@@ -9,6 +9,7 @@ WORKDIR /app
 
 COPY server /app/server
 COPY index.html /app/index.html
+COPY static /app/static
 
 EXPOSE 60419
 
