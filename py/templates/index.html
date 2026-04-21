@@ -59,9 +59,7 @@ tr:hover{background:#e6f4ea}
     <h1>Nginx 访问统计</h1>
     <p>访客 IP 属地查询</p>
     <p style="font-size:12px;color:#c8e6c9;margin-top:8px">
-      {% for key, label, filename, date in all_log_files %}
-        <span style="margin:0 6px">{{ filename }} ({{ date }})</span>
-      {% endfor %}
+      {{ log_path }}{% if log_mtime %}  ·  {{ log_mtime }}{% endif %}
     </p>
   </div>
   <div class="card">

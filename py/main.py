@@ -141,6 +141,8 @@ async def index(request: Request, sort: str = None, order: str = None, font: str
     if pending and not query_status["running"]:
         threading.Thread(target=query_ips_background, args=(pending,), daemon=True).start()
 
+    log_mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(log_path))) if os.path.exists(log_path) else ""
+
     return templates.TemplateResponse(request, "index.html", {
         "data": data,
         "current_sort": sort,
@@ -150,6 +152,8 @@ async def index(request: Request, sort: str = None, order: str = None, font: str
         "current_logfile": logfile,
         "running": query_status["running"],
         "qs": query_status,
+        "log_path": log_path,
+        "log_mtime": log_mtime,
     })
 
 
