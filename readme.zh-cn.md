@@ -48,17 +48,23 @@ DB_FILE = "data/data.db"    # SQLite 数据库路径
 ### Docker 运行
 
 ```bash
-docker pull vincentzyu233/nginx-report:latest
+# 基础运行（容器删除后数据丢失）
 docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
+# china mainlan user can use DaoCloud image:
+docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro m.daocloud.io/docker.io/vincentzyu233/nginx-report:latest 
+# 如果你想做数据持久化
+docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro -v ./data:/app/data vincentzyu233/nginx-report:latest
 ```
 
-访问 http://localhost:60419
+然后访问 `http://localhost:60419` 打开webui~
 
 ### 环境变量
 
+> Docker 建议使用 `-v` 持久化数据，而非环境变量。
+
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `DB_PATH` | `data/data.db` | SQLite 数据库路径 |
+| `DB_PATH` | `data/data.db` | SQLite 数据库路径（容器内路径） |
 
 ### 本地编译
 
@@ -73,6 +79,8 @@ CGO_ENABLED=1 go build -o server .
 
 # 运行
 ./server
+# 如果你想做数据持久化 可以传入环境变量:
+DB_PATH=/custom/path/data.db ./server
 ```
 
 ### Docker Compose
@@ -94,6 +102,7 @@ services:
       - "60419:60419"
     volumes:
       - /var/log/nginx:/var/log/nginx:ro
+      # - ./data:/app/data  # 取消注释以持久化数据库
     restart: unless-stopped
 ```
 

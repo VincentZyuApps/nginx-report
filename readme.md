@@ -48,17 +48,23 @@ DB_FILE = "data/data.db"    # SQLite database path
 ### Docker
 
 ```bash
-docker pull vincentzyu233/nginx-report:latest
+# basic run (data will be lost when container is removed)
 docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
+# 大陆用户可以使用 DaoCloud 镜像:
+docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro m.daocloud.io/docker.io/vincentzyu233/nginx-report:latest 
+# with data persistence
+docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro -v ./data:/app/data vincentzyu233/nginx-report:latest
 ```
 
-Access at http://localhost:60419
+then open `http://localhost:60419` to access webui~
 
 ### Environment Variables
 
+> For Docker, use `-v` to persist data instead of environment variables.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_PATH` | `data/data.db` | SQLite database path |
+| `DB_PATH` | `data/data.db` | SQLite database path (container internal path) |
 
 ### Build from Source
 
@@ -73,6 +79,8 @@ CGO_ENABLED=1 go build -o server .
 
 # run
 ./server
+# with data persistence, pass env variable:
+DB_PATH=/custom/path/data.db ./server
 ```
 
 ### Docker Compose
@@ -94,6 +102,7 @@ services:
       - "60419:60419"
     volumes:
       - /var/log/nginx:/var/log/nginx:ro
+      # - ./data:/app/data  # uncomment to persist database
     restart: unless-stopped
 ```
 
