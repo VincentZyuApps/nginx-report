@@ -60,13 +60,15 @@ then open `http://{your_ip}:60419` to access webui~
 
 > **Update to latest image:**
 > ```bash
-> docker stop nginx-report && docker rm nginx-report
 > docker pull vincentzyu233/nginx-report:latest
-> # re-run with same parameters as above
+> docker stop nginx-report && docker rm nginx-report
+> # docker rmi vincentzyu233/nginx-report:latest # optional: delete old image
+> # rerun, use same arg as above
 > docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
+> docker image prune -f
 > ```
 
-> manually configure docker image registry mirror:
+> **manually configure docker image registry mirror:**
 > ```bash
 > nano /etc/docker/daemon.json
 > ```
@@ -105,14 +107,7 @@ DB_PATH=/custom/path/data.db ./server
 ### Docker Compose
 
 ```bash
-# start
-docker compose up -d
-
-# view logs
-docker compose logs -f
-
-# update to latest image: pull latest, then recreate & start container with new config/image (if updated)
-docker compose pull && docker compose up -d
+nano ./docker-compose.yml
 ```
 
 ```yaml
@@ -129,9 +124,23 @@ services:
     restart: unless-stopped
 ```
 
+```bash
+# start
+docker compose up -d
+# view logs
+docker compose logs -f
+```
+
+> **Update to latest image:**
+> ```bash
+> # update to latest image: pull latest, then recreate & start container with new config/image (if updated)
+> docker compose pull && docker compose up -d
+> docker image prune -f
+> ```
+
 ---
 
 ## Preview
 
-## Python Version WebUI Preview
+## WebUI Preview
 ![doc/preview-images/nginx-report-py-version-preview.png](doc/preview-images/nginx-report-py-version-preview.png)

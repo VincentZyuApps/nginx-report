@@ -60,13 +60,15 @@ docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/ngin
 
 > **更新到最新镜像：**
 > ```bash
-> docker stop nginx-report && docker rm nginx-report
 > docker pull vincentzyu233/nginx-report:latest
+> docker stop nginx-report && docker rm nginx-report
+> # docker rmi vincentzyu233/nginx-report:latest # 可选：删除旧image
 > # 重新运行，使用上面的相同参数
 > docker run -d --name nginx-report -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
+> docker image prune -f
 > ```
 
-> 手动配置docker镜像源:
+> **手动配置docker镜像源:**
 > ```bash
 > nano /etc/docker/daemon.json
 > ```
@@ -105,14 +107,7 @@ DB_PATH=/custom/path/data.db ./server
 ### Docker Compose
 
 ```bash
-# 启动
-docker compose up -d
-
-# 查看日志
-docker compose logs -f
-
-# 更新到最新镜像：拉取最新镜像，然后重新创建并启动容器（使用新配置/新镜像，如果有更新的话）
-docker compose pull && docker compose up -d
+nano ./docker-compose.yml
 ```
 
 ```yaml
@@ -129,9 +124,23 @@ services:
     restart: unless-stopped
 ```
 
+```bash
+# 启动
+docker compose up -d
+# 查看日志
+docker compose logs -f
+```
+
+> **更新到最新镜像：**
+> ```bash
+> # 更新到最新镜像：拉取最新镜像，然后重新创建并启动容器（使用新配置/新镜像，如果有更新的话）
+> docker compose pull && docker compose up -d
+> docker image prune -f
+> ```
+
 ---
 
 ## 效果预览
 
-## Python 版本 WebUI 预览
+## WebUI 预览
 ![doc/preview-images/nginx-report-py-version-preview.png](doc/preview-images/nginx-report-py-version-preview.png)
