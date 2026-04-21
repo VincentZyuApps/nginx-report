@@ -235,6 +235,20 @@
         .location-loading {
             color: #999;
             font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .retry-info {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .location-api {
+            color: #2196F3;
+            font-size: 12px;
+            font-weight: 500;
         }
         
         .location-pending {
@@ -340,13 +354,11 @@
                             {% if item.status == 'pending' %}
                             <span class="location-loading">
                                 <span class="spinner"></span>
-                                {% if item.get('retry', 0)|int > 0 %}
-                                第{{ item.get('retry', 0) }}次重试
-                                {% endif %}
+                                <span class="retry-info" id="retry-{{ loop.index }}">第{{ item.get('retry', 0)|int + 1 }}次请求
+                                    {% if item.get('next_retry', 0)|float > 0 %}，{{ item.get('next_retry', 0) }}s后重试{% endif %}
+                                </span>
                             </span>
-                            {% if item.get('current_api') %}
-                            <span class="location-debug">({{ item.get('current_api') }})</span>
-                            {% endif %}
+                            <span class="location-api" id="api-{{ loop.index }}"></span>
                             {% else %}
                             <span class="location-cell">{{ item.location }}</span>
                             {% endif %}
@@ -369,28 +381,64 @@
     </div>
 
     <script>
+        console.log('[nginx-report] 页面加载，开始监控查询状态...');
+        
         async function updateStatus() {
             try {
                 const res = await fetch('/status');
                 const st = await res.json();
                 
+                console.log('[nginx-report] /status:', JSON.stringify(st));
+                
                 if (st.running) {
                     let text = `第 ${st.done} / ${st.total} 个IP查询中...`;
                     if (st.api) text += `，当前: ${st.api}`;
                     if (st.retry > 0) text += `，第${st.retry}次重试`;
-                    if (st.next_retry > 0) text += `，等待${st.next_retry}s`;
+                    if (st.next_retry > 0) text += `，${parseFloat(st.next_retry).toFixed(1)}s后重试`;
                     document.getElementById('status').innerText = text;
-                    setTimeout(() => location.reload(), 2000);
+                    
+                    // 更新所有pending行的状态
+                    let idx = 1;
+                    document.querySelectorAll('tbody tr').forEach(row => {
+                        const retryEl = document.getElementById('retry-' + idx);
+                        const apiEl = document.getElementById('api-' + idx);
+                        if (retryEl && row.querySelector('.spinner')) {
+                            // 显示当前正在使用的API
+                            if (st.api) {
+                                apiEl.textContent = `(${st.api})`;
+                                apiEl.style.display = 'inline';
+                            }
+                            // 更新重试信息
+                            const retryNum = st.retry + 1;
+                            if (st.next_retry > 0) {
+                                retryEl.textContent = `第${retryNum}次请求，${parseFloat(st.next_retry).toFixed(1)}s后重试`;
+                            } else {
+                                retryEl.textContent = `第${retryNum}次请求`;
+                            }
+                        }
+                        idx++;
+                    });
+                    
+                    console.log(`[nginx-report] 进度: ${st.done}/${st.total}, API: ${st.api}, 重试: ${st.retry}, 下次等待: ${st.next_retry}s`);
+                    setTimeout(() => location.reload(), 2500);
                 } else if (st.done > 0 && st.done === st.total) {
                     document.getElementById('status').innerText = '已加载完成';
+                    console.log('[nginx-report] 查询完成!');
                     setTimeout(() => location.reload(), 1500);
+                } else {
+                    console.log('[nginx-report] 状态异常:', JSON.stringify(st));
                 }
-            } catch(e) {}
+            } catch(e) { 
+                console.error('[nginx-report] 获取状态失败:', e); 
+            }
         }
         
         var isRunning = {{ 'true' if running else 'false' }};
         if (isRunning) {
-            setInterval(updateStatus, 3000);
+            console.log('[nginx-report] 查询进行中，启动状态监控...');
+            setInterval(updateStatus, 1000);
+        } else {
+            console.log('[nginx-report] 查询已完成');
         }
     </script>
 </body>

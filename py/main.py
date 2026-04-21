@@ -93,32 +93,47 @@ def init_db():
 def query_ips_background(ips: list):
     """后台查询IP属地"""
     global query_status
-    delay = 2
-    retry_count = 0
+    max_delay = 32  # 最大等待32秒
     
     with query_lock:
         query_status = {"total": len(ips), "done": 0, "running": True, "api": get_current_api(), "retry": 0, "next_retry": 0}
     
-    for ip in ips:
-        location, api_used = fetch_location_with_source(ip)
-        retry_count = retry_count + (1 if location is None else -retry_count)
-        
-        with query_lock:
-            query_status["done"] += 1
-            query_status["api"] = api_used
-            query_status["retry"] = max(0, retry_count)
-            query_status["next_retry"] = delay if location is None else 0
-        
-        if location is None:
-            # 未查到，等待后重试
-            time.sleep(delay)
-            delay = min(delay * 2, 1024)
-        else:
-            delay = 2
-            retry_count = 0
-            # 每秒最多45个请求 (ip-api限制)
-            time.sleep(0.025)
+    print(f"[INFO] 开始查询 {len(ips)} 个IP...")
     
+    for idx, ip in enumerate(ips):
+        print(f"[INFO] [{idx+1}/{len(ips)}] 正在查询: {ip}")
+        delay = 1
+        ip_retry = 0
+        
+        while True:  # 无上限重试
+            print(f"[DEBUG] [{idx+1}/{len(ips)}] 第{ip_retry+1}次请求 {ip}")
+            location, api_used = fetch_location_with_source(ip)
+            
+            with query_lock:
+                query_status["done"] += 1
+                query_status["api"] = api_used
+                query_status["retry"] = ip_retry
+                query_status["next_retry"] = delay if location is None else 0
+            
+            if location:
+                print(f"[INFO] [{idx+1}/{len(ips)}] ✓ {ip} -> {location} (via {api_used})")
+                break  # 成功，跳出循环
+            
+            ip_retry += 1
+            
+            if ip_retry > 1:
+                print(f"[WARN] [{idx+1}/{len(ips)}] ✗ {ip} 第{ip_retry}次请求失败，等待{delay}秒后重试...")
+            else:
+                print(f"[WARN] [{idx+1}/{len(ips)}] ✗ {ip} 第{ip_retry+1}次请求失败，等待{delay}秒后重试...")
+            
+            # 等待后重试
+            time.sleep(delay)
+            delay = min(delay * 2, max_delay)
+        
+        # 每个IP查询间隔25ms（ip-api限制45次/分钟）
+        time.sleep(0.025)
+    
+    print(f"[INFO] 查询完成! 共处理 {len(ips)} 个IP")
     with query_lock:
         query_status["running"] = False
 
