@@ -2,7 +2,10 @@
 
 Nginx access log 统计工具，查询访客 IP 属地并展示排行榜。
 
-![Build and Publish](https://github.com/VincentZyuApps/nginx-report/workflows/Build%20and%20Publish/badge.svg)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/VincentZyuApps/nginx-report)
+[![Gitee](https://img.shields.io/badge/Gitee-C71D23?style=for-the-badge&logo=gitee&logoColor=white)](https://gitee.com/vincent-zyu/nginx-report)
+![Build and Publish](https://github.com/VincentZyuApps/nginx-report/workflows/Github-Action-CI-Docker-Image-Build-and-Publish/badge.svg)
+
 
 ## Python 版本
 
@@ -95,5 +98,5 @@ services:
 ---
 
 ## 效果预览
-
-<img src="https://raw.githubusercontent.com/VincentZyuApps/nginx-report/master/screenshot.png" width="800">
+## Python 版本 WebUI 预览
+![doc/preview-images/nginx-report-py-version-preview.png](doc/preview-images/nginx-report-py-version-preview.png)

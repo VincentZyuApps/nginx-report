@@ -2,7 +2,9 @@
 
 Nginx access log statistics tool that queries visitor IP locations and displays a leaderboard.
 
-![Build and Publish](https://github.com/VincentZyuApps/nginx-report/workflows/Build%20and%20Publish/badge.svg)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/VincentZyuApps/nginx-report)
+[![Gitee](https://img.shields.io/badge/Gitee-C71D23?style=for-the-badge&logo=gitee&logoColor=white)](https://gitee.com/vincent-zyu/nginx-report)
+![Build and Publish](https://github.com/VincentZyuApps/nginx-report/workflows/Github-Action-CI-Docker-Image-Build-and-Publish/badge.svg)
 
 ## Python Version
 
@@ -94,4 +96,5 @@ services:
 
 ## Preview
 
-<img src="https://raw.githubusercontent.com/VincentZyuApps/nginx-report/master/screenshot.png" width="800">
+## Python Version WebUI Preview
+![doc/preview-images/nginx-report-py-version-preview.png](doc/preview-images/nginx-report-py-version-preview.png)
