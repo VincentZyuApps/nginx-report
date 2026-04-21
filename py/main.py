@@ -40,16 +40,21 @@ def init_db():
 
 
 def get_all_log_files():
+    """返回 (key, label, filename, date) 列表"""
     files = []
-    if os.path.exists(f"{LOG_DIR}/access.log"):
-        files.append(("current", "当前"))
+    p = f"{LOG_DIR}/access.log"
+    if os.path.exists(p):
+        date = time.strftime("%m-%d", time.localtime(os.path.getmtime(p)))
+        files.append(("current", "当前", "access.log", date))
     for i in range(1, 20):
         p = f"{LOG_DIR}/access.log.{i}"
         gz = p + ".gz"
         if os.path.exists(p):
-            files.append((f"access.log.{i}", str(i)))
+            date = time.strftime("%m-%d", time.localtime(os.path.getmtime(p)))
+            files.append((f"access.log.{i}", str(i), f"access.log.{i}", date))
         elif os.path.exists(gz):
-            files.append((f"access.log.{i}.gz", str(i)))
+            date = time.strftime("%m-%d", time.localtime(os.path.getmtime(gz)))
+            files.append((f"access.log.{i}.gz", str(i), f"access.log.{i}.gz", date))
         elif i >= 5:
             break
     return files

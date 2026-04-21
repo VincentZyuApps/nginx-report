@@ -58,15 +58,20 @@ tr:hover{background:#e6f4ea}
   <div class="header">
     <h1>Nginx 访问统计</h1>
     <p>访客 IP 属地查询</p>
+    <p style="font-size:12px;color:#c8e6c9;margin-top:8px">
+      {% for key, label, filename, date in all_log_files %}
+        <span style="margin:0 6px">{{ filename }} ({{ date }})</span>
+      {% endfor %}
+    </p>
   </div>
   <div class="card">
     <div class="toolbar">
       <div class="log-wrap">
         <button class="log-btn" onclick="this.nextElementSibling.classList.toggle('show')">日志 {{ all_log_files|length }} 个</button>
         <div class="log-menu">
-          {% for name, label in all_log_files %}
-          <a class="{{ 'active' if current_logfile == name else '' }}"
-             href="/?logfile={{ name }}&sort={{ current_sort }}&order={{ current_order }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">{{ label }}</a>
+          {% for key, label, filename, date in all_log_files %}
+          <a class="{{ 'active' if current_logfile == key else '' }}"
+             href="/?logfile={{ key }}&sort={{ current_sort }}&order={{ current_order }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">{{ label }}</a>
           {% endfor %}
         </div>
       </div>
