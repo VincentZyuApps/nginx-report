@@ -1,3 +1,7 @@
+![nginx-report](https://socialify.git.ci/VincentZyuApps/nginx-report/image?custom_language=Dockerfile&description=1&font=Raleway&forks=1&issues=1&language=1&logo=https%3A%2F%2Ficon.icepanel.io%2FTechnology%2Fsvg%2FGitHub-Actions.svg&name=1&owner=1&pattern=Circuit+Board&pulls=1&stargazers=1&theme=Light)
+
+[English](./build.md) | [中文](./build.zh-cn.md)
+
 # Build and Publish Workflow
 
 This workflow builds and publishes Docker images to Docker Hub and GitHub Container Registry.
