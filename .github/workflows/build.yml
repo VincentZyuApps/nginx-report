@@ -84,8 +84,8 @@ jobs:
         if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
         uses: peter-evans/dockerhub-description@v3
         with:
-          args: |
-            --public-repo-description-file=readme.md
-          dockerhub: vincentzyu233/nginx-report
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: vincentzyu233/nginx-report
           username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          readme-filepath: readme.md
+          short-description: Nginx access log statistics tool
