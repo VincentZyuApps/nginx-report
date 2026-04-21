@@ -1,76 +1,80 @@
-# Nginx 访问统计
+# Nginx Access Statistics
 
-Nginx access log 统计工具，查询访客 IP 属地并展示排行榜。
+Nginx access log statistics tool that queries visitor IP locations and displays a leaderboard.
 
 ![Build and Publish](https://github.com/VincentZyuApps/nginx-report/workflows/Build%20and%20Publish/badge.svg)
 
-## Python 版本
+## Python Version
 
-### 快速开始
+### Quick Start
 
 ```bash
 # clone repo
 git clone https://github.com/VincentZyuApps/nginx-report
-# 或者从gitee
-git clone https://gitee.com/vincent-zyu/nginx-report.git
 cd py
 
-# 创建虚拟环境
+# create virtual environment
 uv venv --python 3.13
 
-# 安装依赖
+# install dependencies
 uv pip install -r requirements.txt
 
-# 运行
+# run
 uv run python main.py
 ```
 
-服务启动后访问 `http://ip:60418`
+Access the service at `http://ip:60418`
 
-### 配置
+### Configuration
 
-修改 `main.py` 中的路径：
+Edit paths in `main.py`:
 
 ```python
-LOG_FILE = "/var/log/nginx/access.log"  # Nginx 日志路径
-DB_FILE = "data/data.db"                 # SQLite 数据库路径
+LOG_DIR = "/var/log/nginx"  # Nginx log directory (supports access.log and rotated logs)
+DB_FILE = "data/data.db"    # SQLite database path
 ```
 
 ---
 
-## Go 版本
+## Go Version
 
-### Docker 运行
+### Docker
 
 ```bash
 docker pull vincentzyu233/nginx-report:latest
-docker run -d -p 60419:8080 -v /path/to/access.log:/var/log/nginx/access.log vincentzyu233/nginx-report:latest
+docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro vincentzyu233/nginx-report:latest
 ```
 
-访问 http://localhost:60419
+Access at http://localhost:60419
 
-### 本地编译
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_PATH` | `data/data.db` | SQLite database path |
+
+### Build from Source
 
 ```bash
 cd go
 
-# 下载依赖
+# download dependencies
 go mod download
 
-# 编译
+# build
 CGO_ENABLED=1 go build -o server .
 
-# 运行
+# run
 ./server
 ```
 
 ### Docker Compose
 
 ```bash
-# 启动
+# start
 docker compose up -d
 
-# 查看日志
+# view logs
 docker compose logs -f
 ```
 
@@ -80,15 +84,14 @@ services:
   nginx-report:
     image: vincentzyu233/nginx-report:latest
     ports:
-      - "60419:8080"
+      - "60419:60419"
     volumes:
-      - /var/log/nginx/access.log:/var/log/nginx/access.log
+      - /var/log/nginx:/var/log/nginx:ro
     restart: unless-stopped
 ```
 
 ---
 
-## 效果预览
+## Preview
 
 <img src="https://raw.githubusercontent.com/VincentZyuApps/nginx-report/master/screenshot.png" width="800">
-
