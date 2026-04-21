@@ -1,131 +1,106 @@
 # Build and Publish Workflow
 
-> **[📖 简体中文](build.zh-cn.md)**
+This workflow builds and publishes Docker images to Docker Hub and GitHub Container Registry.
 
-## 📋 Overview
+## Triggers
 
-CI/CD pipeline is driven by **keywords in commit messages**. When pushing to `master` branch, include the keywords in commit message and GitHub Actions will do the rest.
+The workflow runs on:
+- Push to `master` or `main` branches
+- Pull requests to `master` or `main` branches
+- Manual trigger via `workflow_dispatch`
 
-## 🔑 Keywords
+## Commit Message Convention
 
-| Commit Keyword | Build Docker | Push to DockerHub | Push to GitHub Packages |
-|---------------|:---:|:---:|:---:|
-| `build action` | ✅ | ❌ | ❌ |
-| `build publish` | ✅ | ✅ | ✅ |
+**Only commits containing `build action` or `build publish` in the message will trigger a full build.**
 
-> **Note:** Pull Requests always trigger build only (no publish).
-
-## 🚀 Usage Examples
-
-```bash
-# ============================================================
-# Single Keyword
-# ============================================================
-
-# Build only, verify compilation
-git commit --allow-empty -m "ci: test build (build action)"
-
-# Build + push to DockerHub and GitHub Packages
-git commit -m "release: v0.1.0 (build publish)"
-
-# ============================================================
-# Regular commit (no build or publish)
-# ============================================================
-
-# Update docs only
-git commit -m "docs: update README"
-
-# Fix bug
-git commit -m "fix: resolve database connection issue"
-
-# Add new feature
-git commit -m "feat: add new API endpoint"
+Otherwise, the workflow will skip the build and display:
+```
+✗ Commit message does not contain build trigger
+   Skipping build (commit: abc1234)
 ```
 
-## 🏗️ Build Targets
+### Examples
 
-| Platform | Base Image | Description |
-|----------|-----------|-------------|
-| Linux | Debian bookworm-slim | Lightweight Go runtime |
-
-## 📦 Pipeline Stages
-
+**Valid commit messages (will trigger build):**
 ```
-check ──→ build ──→ publish
-  │         │           │
-  │         │           ├─ DockerHub: push to vincentzyu/nginx-report
-  │         │           │
-  │         │           └─ GitHub Packages: push to ghcr.io/vincentzyu/nginx-report
-  │         │
-  │         └─ Compile Go program
-  │            Build Docker image (without push)
-  │
-  └─→ sync-gitee (parallel with check, triggers on every push)
-       Mirror code to Gitee
+git commit -m "fix: build action to update Dockerfile"
+git commit -m "chore: build publish release v2.0"
 ```
 
-## 🔧 Environment Setup
-
-### DockerHub
-
-Create Access Token on DockerHub:
-1. Login [DockerHub](https://hub.docker.com)
-2. Go to Account Settings → Security → New Access Token
-3. Save username and password after creation
-
-### GitHub Secrets
-
-Configure in repository Settings → Secrets and variables → Actions:
-
-| Secret Name | Description |
-|------------|------------|
-| `DOCKERHUB_USERNAME` | DockerHub username |
-| `DOCKERHUB_TOKEN` | DockerHub Access Token |
-
-> **Note:** GitHub Packages uses `${{ secrets.GITHUB_TOKEN }}` automatically.
-
-## 🚢 Image Tags
-
-| Trigger | Tags |
-|---------|------|
-| push to master | `latest`, `sha-{commit_sha}` |
-| pull request | `pr-{pr_number}` |
-| tag | `tag-{tag_name}` |
-
-## 🐳 Usage Examples
-
-```bash
-# Pull latest image
-docker pull vincentzyu233/nginx-report:latest
-
-# Run container
-docker run -d -p 60419:8080 -v /path/to/data.db:/app/data.db vincentzyu233/nginx-report:latest
+**Invalid commit messages (will skip build):**
+```
+git commit -m "feat: add new feature"
+git commit -m "update readme"
+git commit -m "fix typo"
 ```
 
-### Docker Compose
+## Pipeline Stages
 
-```yaml
-version: '3'
-services:
-  nginx-report:
-    image: vincentzyu233/nginx-report:latest
-    ports:
-      - "60419:8080"
-    volumes:
-      - ./data.db:/app/data.db
-    restart: unless-stopped
+### Stage 1: Check Commit Message
+
+Validates that the commit message contains the required trigger keyword.
+
+- **Runner:** `ubuntu-latest`
+- **Output:** `should_build` (boolean)
+
+### Stage 2: Build Docker Image
+
+Compiles the Go application and builds Docker images.
+
+- **Runner:** `ubuntu-latest`
+- **Dependencies:** Go 1.21, GCC
+
+**Steps:**
+1. Checkout code
+2. Set up Go 1.21
+3. Install GCC (required for CGO/SQLite)
+4. Download Go dependencies
+5. Build binary with `CGO_ENABLED=1`
+6. Verify build output
+7. Login to Docker Hub
+8. Login to GitHub Container Registry
+9. Generate version tag
+10. Build and push Docker images
+
+**Docker Images:**
+
+| Registry | Image | Tags |
+|----------|-------|------|
+| Docker Hub | `vincentzyu233/nginx-report` | `latest`, `<version>` |
+| GHCR | `ghcr.io/vincentzyaapps/nginx-report` | `latest`, `<version>` |
+
+**Version Tag Format:**
+```
+<commit-sha-7chars>-<timestamp>
+Example: abc1234-20260421-193000
 ```
 
-## 📋 Check CI Status
+### Stage 3: Publish to Docker Hub
 
-1. Open repository GitHub Actions page
-2. Check latest workflow run
-3. View each step status
+Updates the Docker Hub repository description.
 
-## 🔄 Update Image
+- **Runner:** `ubuntu-latest`
 
-```bash
-# Rebuild and publish
-git commit --allow-empty -m "ci: rebuild (build publish)"
-git push
-```
+**Steps:**
+1. Checkout code
+2. Update Docker Hub README using `peter-evans/dockerhub-description@v3`
+
+## Required Secrets
+
+Configure these secrets in GitHub repository settings:
+
+| Secret | Description |
+|--------|-------------|
+| `DOCKERHUB_USERNAME` | Docker Hub account username |
+| `DOCKERHUB_TOKEN` | Docker Hub access token |
+
+## Permissions
+
+- `contents: read`
+- `packages: write`
+
+## Notes
+
+- The Go binary is built with `CGO_ENABLED=1` to support SQLite
+- GCC must be installed for the SQLite CGO bindings
+- Both `latest` and versioned tags are pushed on each build

@@ -1,131 +1,106 @@
-# 构建与发布工作流
+# Build and Publish 工作流
 
-> **[📖 English](build.md)**
+此工作流用于构建并发布 Docker 镜像到 Docker Hub 和 GitHub Container Registry。
 
-## 📋 概述
+## 触发条件
 
-CI/CD 流水线由 **commit 信息中的关键词** 驱动。推送到 `master` 分支时，只需在 commit message 中包含对应关键词，GitHub Actions 会自动完成后续工作。
+工作流在以下情况运行：
+- 推送到 `master` 或 `main` 分支
+- 向 `master` 或 `main` 分支发起 Pull Request
+- 通过 `workflow_dispatch` 手动触发
 
-## 🔑 关键词
+## Commit 信息规范
 
-| Commit 信息中的关键词 | 构建 Docker | 推送到 DockerHub | 推送到 GitHub Packages |
-|----------------------|:---:|:---:|:---:|
-| `build action` | ✅ | ❌ | ❌ |
-| `build publish` | ✅ | ✅ | ✅ |
+**只有 commit 信息包含 `build action` 或 `build publish` 时才会触发完整构建。**
 
-> **说明:** Pull Request 始终会触发构建（不会发布）。
+否则工作流将跳过构建并显示：
+```
+✗ Commit message does not contain build trigger
+   Skipping build (commit: abc1234)
+```
 
-## 🚀 用法示例
+### 合法的 Commit 信息示例（将触发构建）
 
 ```bash
-# ============================================================
-# 单个关键词
-# ============================================================
-
-# 仅构建，验证编译
-git commit --allow-empty -m "ci: test build (build action)"
-
-# 构建 + 推送到 DockerHub 和 GitHub Packages
-git commit -m "release: v0.1.0 (build publish)"
-
-# ============================================================
-# 常规 commit（不需要构建和发布）
-# ============================================================
-
-# 仅更新文档
-git commit -m "docs: update README"
-
-# 修复 bug
-git commit -m "fix: resolve database connection issue"
-
-# 添加新功能
-git commit -m "feat: add new API endpoint"
+git commit -m "fix: build action to update Dockerfile"
+git commit -m "chore: build publish release v2.0"
 ```
 
-## 🏗️ 构建目标
-
-| 平台 | 基础镜像 | 说明 |
-|------|----------|------|
-| Linux | Debian bookworm-slim | 轻量级 Go 运行时 |
-
-## 📦 流水线阶段
-
-```
-check ──→ build ──→ publish
-  │         │           │
-  │         │           ├─ DockerHub: 推送到 vincentzyu/nginx-report
-  │         │           │
-  │         │           └─ GitHub Packages: 推送到 ghcr.io/vincentzyu/nginx-report
-  │         │
-  │         └─ 编译 Go 程序
-  │            构建 Docker 镜像（不上传）
-  │
-  └─→ sync-gitee（与 check 并行，每次 push 触发）
-       镜像代码到 Gitee
-```
-
-## 🔧 环境配置
-
-### DockerHub
-
-在 DockerHub 设置 Access Tokens：
-1. 登录 [DockerHub](https://hub.docker.com)
-2. 进入 Account Settings → Security → New Access Token
-3. 创建后保存用户名和密码
-
-### GitHub Secrets
-
-在仓库 Settings → Secrets and variables → Actions 中配置：
-
-| Secret 名称 | 说明 |
-|------------|------|
-| `DOCKERHUB_USERNAME` | DockerHub 用户名 |
-| `DOCKERHUB_TOKEN` | DockerHub Access Token |
-
-> **注意:** GitHub Packages 使用 `${{ secrets.GITHUB_TOKEN }}` 自动提供。
-
-## 🚢 镜像标签
-
-| 触发条件 | 标签 |
-|----------|------|
-| push 到 master | `latest`, `sha-{commit_sha}` |
-| pull request | `pr-{pr_number}` |
-| tag | `tag-{tag_name}` |
-
-## 🐳 使用示例
+### 非法的 Commit 信息（将跳过构建）
 
 ```bash
-# 拉取最新镜像
-docker pull vincentzyu233/nginx-report:latest
-
-# 运行容器
-docker run -d -p 60419:8080 -v /path/to/data.db:/app/data.db vincentzyu233/nginx-report:latest
+git commit -m "feat: add new feature"
+git commit -m "update readme"
+git commit -m "fix typo"
 ```
 
-### Docker Compose
+## 流水线阶段
 
-```yaml
-version: '3'
-services:
-  nginx-report:
-    image: vincentzyu233/nginx-report:latest
-    ports:
-      - "60419:8080"
-    volumes:
-      - ./data.db:/app/data.db
-    restart: unless-stopped
+### 阶段一：检查 Commit 信息
+
+验证 commit 信息是否包含必需的触发关键词。
+
+- **运行环境：** `ubuntu-latest`
+- **输出：** `should_build` (布尔值)
+
+### 阶段二：构建 Docker 镜像
+
+编译 Go 程序并构建 Docker 镜像。
+
+- **运行环境：** `ubuntu-latest`
+- **依赖：** Go 1.21, GCC
+
+**执行步骤：**
+1. 检出代码
+2. 配置 Go 1.21
+3. 安装 GCC（用于 CGO/SQLite 编译）
+4. 下载 Go 依赖
+5. 使用 `CGO_ENABLED=1` 构建二进制文件
+6. 验证构建输出
+7. 登录 Docker Hub
+8. 登录 GitHub Container Registry
+9. 生成版本标签
+10. 构建并推送 Docker 镜像
+
+**Docker 镜像列表：**
+
+| 仓库 | 镜像 | 标签 |
+|------|------|------|
+| Docker Hub | `vincentzyu233/nginx-report` | `latest`, `<version>` |
+| GHCR | `ghcr.io/vincentzyaapps/nginx-report` | `latest`, `<version>` |
+
+**版本标签格式：**
+```
+<提交哈希前7位>-<时间戳>
+示例：abc1234-20260421-193000
 ```
 
-## 📋 检查 CI 状态
+### 阶段三：发布到 Docker Hub
 
-1. 打开仓库 GitHub Actions 页面
-2. 查看最新 workflow run
-3. 检查各步骤状态
+更新 Docker Hub 仓库描述。
 
-## 🔄 更新镜像
+- **运行环境：** `ubuntu-latest`
 
-```bash
-# 重新构建并发布
-git commit --allow-empty -m "ci: rebuild (build publish)"
-git push
-```
+**执行步骤：**
+1. 检出代码
+2. 使用 `peter-evans/dockerhub-description@v3` 更新 Docker Hub README
+
+## 必需的 Secrets
+
+在 GitHub 仓库设置中配置以下密钥：
+
+| 密钥 | 说明 |
+|------|------|
+| `DOCKERHUB_USERNAME` | Docker Hub 账户用户名 |
+| `DOCKERHUB_TOKEN` | Docker Hub 访问令牌 |
+
+## 权限
+
+- `contents: read`
+- `packages: write`
+
+## 注意事项
+
+- Go 二进制使用 `CGO_ENABLED=1` 编译以支持 SQLite
+- 需要安装 GCC 以编译 SQLite CGO 绑定
+- 每次构建都会推送 `latest` 和带版本号的标签

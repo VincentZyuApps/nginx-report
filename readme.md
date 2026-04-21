@@ -20,17 +20,17 @@ git clone https://github.com/VincentZyuApps/nginx-report
 git clone https://gitee.com/vincent-zyu/nginx-report.git
 cd py
 
-# create virtual environment
+# create virtual environment using uv (recommended)
+# https://docs.astral.sh/uv/getting-started/installation/
+# https://gitee.com/wangnov/uv-custom/releases
 uv venv --python 3.13
-
 # install dependencies
 uv pip install -r requirements.txt
-
 # run
 uv run python main.py
 ```
 
-Access the service at `http://ip:60418`
+Access the service at `http://{your_ip}:60418`
 
 ### Configuration
 
@@ -56,7 +56,7 @@ docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro m.daocloud.io/d
 docker run -d -p 60419:60419 -v /var/log/nginx:/var/log/nginx:ro -v ./data:/app/data vincentzyu233/nginx-report:latest
 ```
 
-then open `http://localhost:60419` to access webui~
+then open `http://{your_ip}:60419` to access webui~
 
 ### Environment Variables
 
