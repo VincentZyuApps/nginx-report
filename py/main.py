@@ -108,15 +108,16 @@ def query_ips_background(ips: list):
         while True:  # 无上限重试
             print(f"[DEBUG] [{idx+1}/{len(ips)}] 第{ip_retry+1}次请求 {ip}")
             location, api_used = fetch_location_with_source(ip)
-            
+
             with query_lock:
-                query_status["done"] += 1
                 query_status["api"] = api_used
                 query_status["retry"] = ip_retry
                 query_status["next_retry"] = delay if location is None else 0
-            
+
             if location:
                 print(f"[INFO] [{idx+1}/{len(ips)}] ✓ {ip} -> {location} (via {api_used})")
+                with query_lock:
+                    query_status["done"] += 1
                 break  # 成功，跳出循环
             
             ip_retry += 1
@@ -270,6 +271,19 @@ async def index(request: Request, sort: str = None, order: str = None, font: str
 async def status():
     """查询进度API"""
     return query_status
+
+@app.get("/locations")
+async def locations(ips: str = ""):
+    """批量查询IP缓存属地，ips为逗号分隔"""
+    result = {}
+    for ip in ips.split(","):
+        ip = ip.strip()
+        if not ip:
+            continue
+        cached = get_cached_location(ip)
+        if cached:
+            result[ip] = {"location": cached[0], "api_source": cached[1]}
+    return result
 
 if __name__ == "__main__":
     init_db()

@@ -381,65 +381,56 @@
     </div>
 
     <script>
-        console.log('[nginx-report] 页面加载，开始监控查询状态...');
-        
-        async function updateStatus() {
+        // 收集所有pending的IP，key=ip, value=tr元素
+        const pendingRows = {};
+        document.querySelectorAll('tbody tr').forEach(row => {
+            if (row.querySelector('.spinner')) {
+                const ip = row.querySelector('.ip-cell').textContent.trim();
+                pendingRows[ip] = row;
+            }
+        });
+
+        async function poll() {
+            if (Object.keys(pendingRows).length === 0) return;
+
             try {
-                const res = await fetch('/status');
-                const st = await res.json();
-                
-                console.log('[nginx-report] /status:', JSON.stringify(st));
-                
+                const st = await fetch('/status').then(r => r.json());
+
+                // 更新顶部状态栏
+                const statusEl = document.getElementById('status');
                 if (st.running) {
                     let text = `第 ${st.done} / ${st.total} 个IP查询中...`;
                     if (st.api) text += `，当前: ${st.api}`;
                     if (st.retry > 0) text += `，第${st.retry}次重试`;
                     if (st.next_retry > 0) text += `，${parseFloat(st.next_retry).toFixed(1)}s后重试`;
-                    document.getElementById('status').innerText = text;
-                    
-                    // 更新所有pending行的状态
-                    let idx = 1;
-                    document.querySelectorAll('tbody tr').forEach(row => {
-                        const retryEl = document.getElementById('retry-' + idx);
-                        const apiEl = document.getElementById('api-' + idx);
-                        if (retryEl && row.querySelector('.spinner')) {
-                            // 显示当前正在使用的API
-                            if (st.api) {
-                                apiEl.textContent = `(${st.api})`;
-                                apiEl.style.display = 'inline';
-                            }
-                            // 更新重试信息
-                            const retryNum = st.retry + 1;
-                            if (st.next_retry > 0) {
-                                retryEl.textContent = `第${retryNum}次请求，${parseFloat(st.next_retry).toFixed(1)}s后重试`;
-                            } else {
-                                retryEl.textContent = `第${retryNum}次请求`;
-                            }
-                        }
-                        idx++;
-                    });
-                    
-                    console.log(`[nginx-report] 进度: ${st.done}/${st.total}, API: ${st.api}, 重试: ${st.retry}, 下次等待: ${st.next_retry}s`);
-                    setTimeout(() => location.reload(), 2500);
-                } else if (st.done > 0 && st.done === st.total) {
-                    document.getElementById('status').innerText = '已加载完成';
-                    console.log('[nginx-report] 查询完成!');
-                    setTimeout(() => location.reload(), 1500);
+                    statusEl.innerText = text;
                 } else {
-                    console.log('[nginx-report] 状态异常:', JSON.stringify(st));
+                    statusEl.innerText = '已加载完成';
+                    document.querySelector('.status-badge').className = 'status-badge done';
                 }
-            } catch(e) { 
-                console.error('[nginx-report] 获取状态失败:', e); 
+
+                // 拉取已完成的IP属地
+                const ips = Object.keys(pendingRows).join(',');
+                const locs = await fetch('/locations?ips=' + encodeURIComponent(ips)).then(r => r.json());
+
+                for (const [ip, info] of Object.entries(locs)) {
+                    const row = pendingRows[ip];
+                    if (!row) continue;
+                    // 替换属地列
+                    row.querySelector('td:nth-child(3)').innerHTML = `<span class="location-cell">${info.location}</span>`;
+                    row.querySelector('td:nth-child(4)').textContent = info.api_source;
+                    delete pendingRows[ip];
+                }
+
+                if (Object.keys(pendingRows).length > 0) {
+                    setTimeout(poll, 1000);
+                }
+            } catch(e) {
+                setTimeout(poll, 2000);
             }
         }
-        
-        var isRunning = {{ 'true' if running else 'false' }};
-        if (isRunning) {
-            console.log('[nginx-report] 查询进行中，启动状态监控...');
-            setInterval(updateStatus, 1000);
-        } else {
-            console.log('[nginx-report] 查询已完成');
-        }
+
+        if ({{ 'true' if running else 'false' }}) poll();
     </script>
 </body>
 </html>
