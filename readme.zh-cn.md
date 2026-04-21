@@ -1,3 +1,5 @@
+![nginx-report](https://socialify.git.ci/VincentZyuApps/nginx-report/image?custom_language=Go&description=1&font=Raleway&forks=1&issues=1&language=1&logo=https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2Fthumb%2Fc%2Fc3%2FPython-logo-notext.svg%2F120px-Python-logo-notext.svg.png%3F_%3D20250701090410&name=1&owner=1&pattern=Circuit+Board&pulls=1&stargazers=1&theme=Light)
+
 # Nginx 访问统计
 
 Nginx access log 统计工具，查询访客 IP 属地并展示排行榜。
