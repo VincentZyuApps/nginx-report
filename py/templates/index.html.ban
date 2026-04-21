@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nginx IP 访问统计</title>
+    {% if use_custom_font %}
+    <style>
+        @font-face {
+            font-family: 'LXGW Mono';
+            src: url('/static/font.ttf') format('truetype');
+        }
+        body, body * { font-family: 'LXGW Mono', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important; }
+        .ip-cell, .ip-cell * { font-family: 'LXGW Mono', 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace !important; }
+        .count-cell, .count-cell * { font-family: 'LXGW Mono', 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace !important; }
+    </style>
+    {% endif %}
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            color: #000;
+            min-height: 100vh;
+            padding: 80px 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+            padding: 24px;
+            background: linear-gradient(135deg, #009639 0%, #4caf50 100%);
+            border-radius: 12px;
+        }
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #fff;
+            letter-spacing: -0.02em;
+        }
+        .header p {
+            color: #e8f5e9;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #009639;
+            overflow: hidden;
+        }
+        
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #009639;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .toolbar-left {
+            position: relative;
+        }
+        
+        .log-dropdown-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: #009639;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .log-dropdown-btn::after {
+            content: '▼';
+            font-size: 8px;
+        }
+        
+        .log-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: #fff;
+            border: 1px solid #009639;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            min-width: 120px;
+            overflow: hidden;
+        }
+        
+        .log-dropdown-menu.show {
+            display: block;
+        }
+        
+        .log-dropdown-menu a {
+            display: block;
+            padding: 10px 16px;
+            color: #333;
+            text-decoration: none;
+            font-size: 13px;
+            border-bottom: 1px solid #e6f4ea;
+        }
+        
+        .log-dropdown-menu a:last-child {
+            border-bottom: none;
+        }
+        
+        .log-dropdown-menu a:hover {
+            background: #e6f4ea;
+            color: #009639;
+        }
+        
+        .log-dropdown-menu a.active {
+            background: #009639;
+            color: #fff;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .toolbar-bottom {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 12px 20px;
+            border-top: 1px solid #009639;
+        }
+        
+        .toolbar a {
+            padding: 6px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+        
+        .toolbar a.sort-active {
+            background: #009639;
+            color: #fff;
+        }
+        
+        .toolbar a.sort-inactive {
+            color: #009639;
+        }
+        
+        .toolbar a.sort-inactive:hover {
+            background: #e6f4ea;
+            color: #009639;
+        }
+        
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .status-badge.loading .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #999;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-badge.done .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        table { width: 100%; border-collapse: collapse; }
+        
+        th {
+            padding: 12px 20px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 500;
+            color: #009639;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: #e6f4ea;
+            border-bottom: 1px solid #009639;
+        }
+        
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #c8e6c9;
+            font-size: 14px;
+        }
+        
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: #e6f4ea; }
+        
+        .ip-cell {
+            font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-size: 13px;
+            font-weight: 400;
+            letter-spacing: 0;
+            color: #333;
+        }
+        
+        .count-cell {
+            font-weight: 500;
+            color: #009639;
+        }
+        
+        .location-cell {
+            color: #333;
+        }
+        
+        .location-loading {
+            color: #999;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .retry-info {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .location-api {
+            color: #2196F3;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .location-pending {
+            color: #f60;
+            font-size: 13px;
+        }
+        
+        .location-debug {
+            color: #666;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 1.5px solid #ddd;
+            border-top-color: #999;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: #009639;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Nginx 访问统计</h1>
+            <p>访客 IP 属地查询</p>
+        </div>
+        
+        <div class="card">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <div class="log-dropdown">
+                        <button class="log-dropdown-btn" onclick="this.nextElementSibling.classList.toggle('show')">
+                            日志 {{ all_log_files|length }} 个
+                        </button>
+                        <div class="log-dropdown-menu">
+                            {% for name, label in all_log_files %}
+                            <a class="{{ 'active' if current_logfile == name else '' }}" href="/?logfile={{ name }}&sort={{ current_sort }}&order={{ current_order }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">{{ label }}</a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="toolbar-right">
+                    <a class="{{ 'sort-active' if current_sort == 'ip' else 'sort-inactive' }}" href="/?logfile={{ current_logfile }}&sort=ip&order={{ 'desc' if current_sort == 'ip' and current_order == 'asc' else 'asc' }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">IP {{ '↓' if current_sort == 'ip' and current_order == 'desc' else '↑' }}</a>
+                    <a class="{{ 'sort-active' if current_sort == 'count' else 'sort-inactive' }}" href="/?logfile={{ current_logfile }}&sort=count&order={{ 'desc' if current_sort == 'count' and current_order == 'asc' else 'asc' }}&font={{ 'enabled' if use_custom_font else 'disabled' }}">次数 {{ '↓' if current_sort == 'count' and current_order == 'desc' else '↑' }}</a>
+                    <span style="width:1px;height:16px;background:#009639;margin:0 8px;"></span>
+                    <a class="{{ 'sort-active' if use_custom_font else 'sort-inactive' }}" href="/?logfile={{ current_logfile }}&sort={{ current_sort }}&order={{ current_order }}&font={{ 'disabled' if use_custom_font else 'enabled' }}">字体 {{ '✓' if use_custom_font else '' }}</a>
+                </div>
+            </div>
+            
+            <div class="toolbar-bottom">
+                <div class="status-badge {{ 'loading' if running else 'done' }}">
+                    <span class="status-dot"></span>
+                    <span id="status">
+                        {% if running %}
+                        第 {{ done }} / {{ total }} 个IP查询中...
+                        {% if current_api %}，当前: {{ current_api }}{% endif %}
+                        {% if retry|int > 0 %}，第 {{ retry }} 次重试{% endif %}
+                        {% if next_retry|float > 0 %}，等待 {{ next_retry }}s{% endif %}
+                        {% else %}
+                        已加载完成
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            
+            {% if data %}
+            <table>
+                <thead>
+                    <tr>
+                        <th width="140">访客 IP</th>
+                        <th width="100">访问次数</th>
+                        <th>属地</th>
+                        <th width="80">API</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in data %}
+                    <tr>
+                        <td class="ip-cell">{{ item.ip }}</td>
+                        <td class="count-cell">{{ item.count }}</td>
+                        <td>
+                            {% if item.status == 'pending' %}
+                            <span class="location-loading">
+                                <span class="spinner"></span>
+                                <span class="retry-info" id="retry-{{ loop.index }}">第{{ item.get('retry', 0)|int + 1 }}次请求
+                                    {% if item.get('next_retry', 0)|float > 0 %}，{{ item.get('next_retry', 0) }}s后重试{% endif %}
+                                </span>
+                            </span>
+                            <span class="location-api" id="api-{{ loop.index }}"></span>
+                            {% else %}
+                            <span class="location-cell">{{ item.location }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="api-cell">{{ item.api_source }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>暂无访问记录</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="footer">
+            缓存有效期 30 天 · SQLite 本地存储
+        </div>
+    </div>
+
+    <script>
+        // 收集所有pending的IP，key=ip, value=tr元素
+        const pendingRows = {};
+        document.querySelectorAll('tbody tr').forEach(row => {
+            if (row.querySelector('.spinner')) {
+                const ip = row.querySelector('.ip-cell').textContent.trim();
+                pendingRows[ip] = row;
+            }
+        });
+
+        async function poll() {
+            if (Object.keys(pendingRows).length === 0) return;
+
+            try {
+                const st = await fetch('/status').then(r => r.json());
+
+                // 更新顶部状态栏
+                const statusEl = document.getElementById('status');
+                if (st.running) {
+                    let text = `第 ${st.done} / ${st.total} 个IP查询中...`;
+                    if (st.api) text += `，当前: ${st.api}`;
+                    if (st.retry > 0) text += `，第${st.retry}次重试`;
+                    if (st.next_retry > 0) text += `，${parseFloat(st.next_retry).toFixed(1)}s后重试`;
+                    statusEl.innerText = text;
+                } else {
+                    statusEl.innerText = '已加载完成';
+                    document.querySelector('.status-badge').className = 'status-badge done';
+                }
+
+                // 拉取已完成的IP属地
+                const ips = Object.keys(pendingRows).join(',');
+                const locs = await fetch('/locations?ips=' + encodeURIComponent(ips)).then(r => r.json());
+
+                for (const [ip, info] of Object.entries(locs)) {
+                    const row = pendingRows[ip];
+                    if (!row) continue;
+                    // 替换属地列
+                    row.querySelector('td:nth-child(3)').innerHTML = `<span class="location-cell">${info.location}</span>`;
+                    row.querySelector('td:nth-child(4)').textContent = info.api_source;
+                    delete pendingRows[ip];
+                }
+
+                if (Object.keys(pendingRows).length > 0) {
+                    setTimeout(poll, 1000);
+                }
+            } catch(e) {
+                setTimeout(poll, 2000);
+            }
+        }
+
+        if ({{ 'true' if running else 'false' }}) poll();
+    </script>
+</body>
+</html>

@@ -1,88 +1,36 @@
-# 第三方库
-import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-
-# 标准库
 import asyncio
 import gzip
-import json
 import os
 import sqlite3
 import threading
 import time
 from collections import Counter
 
-# IP查询API (从api.py导入)
-from api import fetch_location, get_current_api
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from api import fetch_location_with_source, get_current_api
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-
-# 静态文件目录（字体）
 app.mount("/static", StaticFiles(directory="static"), "static")
 
-LOG_FILE = "/var/log/nginx/access.log"
-
-def get_all_log_files():
-    """获取所有日志文件（当前+轮转）"""
-    log_dir = "/var/log/nginx"
-    files = []
-    
-    # 当前日志
-    if os.path.exists(LOG_FILE):
-        files.append(("current", "当前"))
-    
-    # 轮转日志 access.log.1, .2, ... 以及 .gz压缩的
-    for i in range(1, 20):
-        # 未压缩的
-        path = f"{log_dir}/access.log.{i}"
-        if os.path.exists(path):
-            mtime = os.path.getmtime(path)
-            date = time.strftime("%m-%d", time.localtime(mtime))
-            files.append((f"access.log.{i}", f"{i}"))
-            continue
-        
-        # 压缩的
-        gz_path = f"{log_dir}/access.log.{i}.gz"
-        if os.path.exists(gz_path):
-            mtime = os.path.getmtime(gz_path)
-            date = time.strftime("%m-%d", time.localtime(mtime))
-            files.append((f"access.log.{i}.gz", f"{i}"))
-            continue
-        
-        # 如果都不存在，停止遍历
-        if not os.path.exists(path) and not os.path.exists(gz_path):
-            # 允许中间有间隙，继续找下一个
-            if i < 5:
-                continue
-            break
-    
-    return files
-
-# 数据库配置
+LOG_DIR = "/var/log/nginx"
 DB_FILE = "data/data.db"
-CACHE_TTL = 30 * 24 * 3600  # 30 天
+CACHE_TTL = 30 * 24 * 3600
 
-# 全局查询进度
 query_status = {"total": 0, "done": 0, "running": False, "api": "", "retry": 0, "next_retry": 0}
 query_lock = threading.Lock()
 
+
 def init_db():
-    """初始化数据库"""
     os.makedirs("data", exist_ok=True)
     conn = sqlite3.connect(DB_FILE)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS ip_cache (
-            ip TEXT PRIMARY KEY,
-            location TEXT,
-            api_source TEXT,
-            timestamp INTEGER
-        )
-    """)
-    # 如果api_source列不存在，添加它
+    conn.execute("""CREATE TABLE IF NOT EXISTS ip_cache (
+        ip TEXT PRIMARY KEY, location TEXT, api_source TEXT, timestamp INTEGER)""")
     try:
         conn.execute("SELECT api_source FROM ip_cache LIMIT 1")
     except sqlite3.OperationalError:
@@ -90,200 +38,132 @@ def init_db():
     conn.commit()
     conn.close()
 
-def query_ips_background(ips: list):
-    """后台查询IP属地"""
-    global query_status
-    max_delay = 32  # 最大等待32秒
-    
-    with query_lock:
-        query_status = {"total": len(ips), "done": 0, "running": True, "api": get_current_api(), "retry": 0, "next_retry": 0}
-    
-    print(f"[INFO] 开始查询 {len(ips)} 个IP...")
-    
-    for idx, ip in enumerate(ips):
-        print(f"[INFO] [{idx+1}/{len(ips)}] 正在查询: {ip}")
-        delay = 1
-        ip_retry = 0
-        
-        while True:  # 无上限重试
-            print(f"[DEBUG] [{idx+1}/{len(ips)}] 第{ip_retry+1}次请求 {ip}")
-            location, api_used = fetch_location_with_source(ip)
 
-            with query_lock:
-                query_status["api"] = api_used
-                query_status["retry"] = ip_retry
-                query_status["next_retry"] = delay if location is None else 0
+def get_all_log_files():
+    files = []
+    if os.path.exists(f"{LOG_DIR}/access.log"):
+        files.append(("current", "当前"))
+    for i in range(1, 20):
+        p = f"{LOG_DIR}/access.log.{i}"
+        gz = p + ".gz"
+        if os.path.exists(p):
+            files.append((f"access.log.{i}", str(i)))
+        elif os.path.exists(gz):
+            files.append((f"access.log.{i}.gz", str(i)))
+        elif i >= 5:
+            break
+    return files
 
-            if location:
-                print(f"[INFO] [{idx+1}/{len(ips)}] ✓ {ip} -> {location} (via {api_used})")
-                with query_lock:
-                    query_status["done"] += 1
-                break  # 成功，跳出循环
-            
-            ip_retry += 1
-            
-            if ip_retry > 1:
-                print(f"[WARN] [{idx+1}/{len(ips)}] ✗ {ip} 第{ip_retry}次请求失败，等待{delay}秒后重试...")
-            else:
-                print(f"[WARN] [{idx+1}/{len(ips)}] ✗ {ip} 第{ip_retry+1}次请求失败，等待{delay}秒后重试...")
-            
-            # 等待后重试
-            time.sleep(delay)
-            delay = min(delay * 2, max_delay)
-        
-        # 每个IP查询间隔25ms（ip-api限制45次/分钟）
-        time.sleep(0.025)
-    
-    print(f"[INFO] 查询完成! 共处理 {len(ips)} 个IP")
-    with query_lock:
-        query_status["running"] = False
 
-async def run_background_query(ips: list):
-    """异步后台查询"""
-    await asyncio.to_thread(query_ips_background, ips)
+def get_log_data(log_path):
+    if not os.path.exists(log_path):
+        return []
+    try:
+        opener = gzip.open(log_path, "rt", encoding="utf-8") if log_path.endswith(".gz") else open(log_path, encoding="utf-8")
+        with opener as f:
+            ips = [line.split()[0] for line in f if line.strip()]
+        return [{"ip": ip, "count": c} for ip, c in Counter(ips).items()]
+    except Exception as e:
+        print(f"[log] {e}")
+        return []
 
-def get_cached_location(ip: str) -> tuple:
-    """获取缓存的IP属地"""
+
+def db_get(ip):
     conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT location, api_source, timestamp FROM ip_cache WHERE ip = ?", (ip,))
-    row = cursor.fetchone()
+    row = conn.execute("SELECT location, api_source, timestamp FROM ip_cache WHERE ip=?", (ip,)).fetchone()
     conn.close()
-    
-    if row:
-        location, api_source, timestamp = row
-        if time.time() - timestamp < CACHE_TTL:
-            return (location, api_source, timestamp)
+    if row and time.time() - row[2] < CACHE_TTL:
+        return (row[0], row[1])
     return None
 
-def save_location(ip: str, location: str, api_source: str):
-    """保存IP属地到缓存"""
+
+def db_set(ip, location, api_source):
     conn = sqlite3.connect(DB_FILE)
-    conn.execute(
-        "INSERT OR REPLACE INTO ip_cache (ip, location, api_source, timestamp) VALUES (?, ?, ?, ?)",
-        (ip, location, api_source, int(time.time()))
-    )
+    conn.execute("INSERT OR REPLACE INTO ip_cache VALUES (?,?,?,?)", (ip, location, api_source, int(time.time())))
     conn.commit()
     conn.close()
 
-def get_ip_location(ip: str) -> str:
-    """查询IP属地，支持缓存"""
-    cached = get_cached_location(ip)
-    if cached:
-        return cached[0]
-    
-    location, api_used = fetch_location_with_source(ip)
-    if location:
-        save_location(ip, location, api_used)
-    return location or "查询失败"
 
-def get_log_data(log_file):
-    """从指定日志文件读取IP统计"""
-    if not os.path.exists(log_file):
-        return []
-    
-    try:
-        ips = []
-        if log_file.endswith('.gz'):
-            with gzip.open(log_file, 'rt', encoding='utf-8') as f:
-                ips = [line.split()[0] for line in f if line.strip() and len(line.split()) > 0]
-        else:
-            with open(log_file, "r", encoding="utf-8") as f:
-                ips = [line.split()[0] for line in f if line.strip() and len(line.split()) > 0]
-        
-        if not ips:
-            return []
-        counter = Counter(ips)
-        return [{"ip": ip, "count": count} for ip, count in counter.items()]
-    except Exception as e:
-        print(f"Log Error: {e}")
-        return []
+def query_ips_background(ips):
+    global query_status
+    with query_lock:
+        query_status = {"total": len(ips), "done": 0, "running": True, "api": get_current_api(), "retry": 0, "next_retry": 0}
+
+    for idx, ip in enumerate(ips):
+        delay = 1
+        attempt = 0
+        while True:
+            print(f"[{idx+1}/{len(ips)}] attempt {attempt+1} {ip}")
+            location, api_used = fetch_location_with_source(ip)
+            with query_lock:
+                query_status["api"] = api_used or query_status["api"]
+                query_status["retry"] = attempt
+                query_status["next_retry"] = delay if not location else 0
+            if location:
+                db_set(ip, location, api_used)
+                with query_lock:
+                    query_status["done"] += 1
+                break
+            attempt += 1
+            time.sleep(delay)
+            delay = min(delay * 2, 32)
+        time.sleep(0.05)
+
+    with query_lock:
+        query_status["running"] = False
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, sort: str = None, order: str = None, font: str = None, logfile: str = None):
-    # 默认重定向到完整参数
     if sort is None or order is None or font is None:
-        return RedirectResponse(url=f"/?logfile=current&sort=count&order=desc&font=enabled")
-    
-    # 获取可选的日志文件列表
-    all_log_files = get_all_log_files()
-    
-    # 默认使用当前日志
-    if logfile is None:
-        logfile = "current"
-    
-    # 读取指定日志文件
-    if logfile == "current":
-        log_path = "/var/log/nginx/access.log"
-    else:
-        log_path = f"/var/log/nginx/{logfile}"
-    
+        return RedirectResponse(url="/?logfile=current&sort=count&order=desc&font=enabled")
+
+    logfile = logfile or "current"
+    log_path = f"{LOG_DIR}/access.log" if logfile == "current" else f"{LOG_DIR}/{logfile}"
     data = get_log_data(log_path)
-    
-    # 排序逻辑
+
     is_reverse = (order == "desc")
-    if sort == "ip":
-        data.sort(key=lambda x: x["ip"], reverse=is_reverse)
-    else:
-        data.sort(key=lambda x: x["count"], reverse=is_reverse)
-    
-    # 为每个IP填充属地（已有缓存的直接返回，无缓存返回"待查询"）
+    data.sort(key=lambda x: x["ip"] if sort == "ip" else x["count"], reverse=is_reverse)
+
     for item in data:
-        cached = get_cached_location(item["ip"])
+        cached = db_get(item["ip"])
         if cached:
-            item["location"] = cached[0]
-            item["api_source"] = cached[1]
-            item["status"] = "done"
+            item["location"], item["api_source"], item["status"] = cached[0], cached[1], "done"
         else:
-            item["location"] = "待查询"
-            item["api_source"] = ""
-            item["status"] = "pending"
-    
-    # 启动后台查询
-    ips = [item["ip"] for item in data if item["status"] == "pending"]
-    if ips and not query_status["running"]:
-        query_status["total"] = len(ips)
-        query_status["done"] = 0
-        query_status["running"] = True
-        # 用 asyncio 在后台运行查询
-        asyncio.create_task(run_background_query(ips))
-    
-    return templates.TemplateResponse(
-        request, 
-        "index.html", 
-        {
-            "data": data,
-            "current_sort": sort,
-            "current_order": order,
-            "total": str(query_status["total"]),
-            "done": str(query_status["done"]),
-            "running": query_status["running"],
-            "current_api": query_status.get("api", ""),
-            "retry": str(query_status.get("retry", 0)),
-            "next_retry": str(round(query_status.get("next_retry", 0), 1)),
-            "use_custom_font": font == "enabled",
-            "all_log_files": all_log_files,
-            "current_logfile": logfile
-        }
-    )
+            item["location"], item["api_source"], item["status"] = "待查询", "", "pending"
+
+    pending = [item["ip"] for item in data if item["status"] == "pending"]
+    if pending and not query_status["running"]:
+        threading.Thread(target=query_ips_background, args=(pending,), daemon=True).start()
+
+    return templates.TemplateResponse(request, "index.html", {
+        "data": data,
+        "current_sort": sort,
+        "current_order": order,
+        "use_custom_font": font == "enabled",
+        "all_log_files": get_all_log_files(),
+        "current_logfile": logfile,
+        "running": query_status["running"],
+        "qs": query_status,
+    })
+
 
 @app.get("/status")
 async def status():
-    """查询进度API"""
     return query_status
+
 
 @app.get("/locations")
 async def locations(ips: str = ""):
-    """批量查询IP缓存属地，ips为逗号分隔"""
     result = {}
     for ip in ips.split(","):
         ip = ip.strip()
-        if not ip:
-            continue
-        cached = get_cached_location(ip)
-        if cached:
-            result[ip] = {"location": cached[0], "api_source": cached[1]}
+        if ip:
+            cached = db_get(ip)
+            if cached:
+                result[ip] = {"location": cached[0], "api_source": cached[1]}
     return result
+
 
 if __name__ == "__main__":
     init_db()
